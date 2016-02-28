@@ -21,7 +21,7 @@ public class Server2 {
 				);
 
 		CopycatServer server = CopycatServer.builder(address, members)
-				  .withStateMachine(MapStateMachine2::new)
+				  .withStateMachine(() -> {return new MapStateMachine("localhost", 6002);})
 				  .withTransport(NettyTransport.builder()
 				    .withThreads(4)
 				    .build())

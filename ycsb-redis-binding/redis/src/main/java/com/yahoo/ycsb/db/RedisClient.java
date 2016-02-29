@@ -56,6 +56,7 @@ public class RedisClient extends DB {
   public static final String INDEX_KEY = "_indices";
 
   public void init() throws DBException {
+    System.out.println("in init");
     Properties props = getProperties();
     int port;
 
@@ -79,7 +80,28 @@ public class RedisClient extends DB {
   public void cleanup() throws DBException {
     jedis.disconnect();
   }
+  
+  /**
+   * Start a database transaction. 
+   */
+  public void start() throws DBException {
+    System.out.println("in start transaction");
+  }
 
+  /**
+   * Commit the current database transaction. 
+   */
+  public void commit() throws DBException {
+    System.out.println("in commit transaction");
+  }
+
+  /**
+   * Abort the current database transaction. 
+   */
+  public void abort() throws DBException {
+    System.out.println("in abort transaction");
+  }
+  
   /*
    * Calculate a hash for a key to store it in an index. The actual return value
    * of this function is not interesting -- it primarily needs to be fast and
@@ -95,6 +117,7 @@ public class RedisClient extends DB {
   @Override
   public Status read(String table, String key, Set<String> fields,
       HashMap<String, ByteIterator> result) {
+    System.out.println("in read");
     if (fields == null) {
       StringByteIterator.putAllAsByteIterators(result, jedis.hgetAll(key));
     } else {
@@ -117,6 +140,7 @@ public class RedisClient extends DB {
   @Override
   public Status insert(String table, String key,
       HashMap<String, ByteIterator> values) {
+    System.out.println("in insert");
     if (jedis.hmset(key, StringByteIterator.getStringMap(values))
         .equals("OK")) {
       jedis.zadd(INDEX_KEY, hash(key), key);
@@ -127,6 +151,7 @@ public class RedisClient extends DB {
 
   @Override
   public Status delete(String table, String key) {
+    System.out.println("in delete");
     return jedis.del(key) == 0 && jedis.zrem(INDEX_KEY, key) == 0 ? Status.ERROR
         : Status.OK;
   }
@@ -134,6 +159,7 @@ public class RedisClient extends DB {
   @Override
   public Status update(String table, String key,
       HashMap<String, ByteIterator> values) {
+    System.out.println("in update");
     return jedis.hmset(key, StringByteIterator.getStringMap(values))
         .equals("OK") ? Status.OK : Status.ERROR;
   }
@@ -141,6 +167,7 @@ public class RedisClient extends DB {
   @Override
   public Status scan(String table, String startkey, int recordcount,
       Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
+    System.out.println("in scan");
     Set<String> keys = jedis.zrangeByScore(INDEX_KEY, hash(startkey),
         Double.POSITIVE_INFINITY, 0, recordcount);
 

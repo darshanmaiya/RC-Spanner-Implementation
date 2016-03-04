@@ -14,7 +14,7 @@ public class RedisYcsb {
 	//	r.serverSocket = new ServerSocket(5000);
 		
 		try{
-			r.serverSocket = new ServerSocket(5000);
+			r.serverSocket = new ServerSocket(6000);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -27,7 +27,11 @@ public class RedisYcsb {
 				Thread.sleep(10000);
 			//	acceptorOutput.println("HELLO");
 				// Send Commit message to test Paxos. Assuming message contains buffered writes along with Commit message 
-				acceptorOutput.println("COMMIT= X:2 Y:3 Z:4");
+				acceptorOutput.println("COMMIT=X:2 Y:3 Z:4");
+				acceptorOutput.flush();
+				acceptorOutput.println("COMMIT=X:12 Y:13 Z:14");
+				acceptorOutput.flush();
+				acceptorOutput.println("COMMIT=X:12 Y:13 Z:14");
 				acceptorOutput.flush();
 			}catch (IOException e){
 				e.printStackTrace();

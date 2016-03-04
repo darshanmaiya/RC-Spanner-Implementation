@@ -9,14 +9,16 @@ public class Server {
 	private Socket acceptorSocket;
 	private PrintWriter acceptorWriter;
 	private BufferedReader acceptorReader;
+	private boolean acceptedPrepare;
 
 	// Server constructor
 	public Server(int id, String ipAddress, int port){
 		this.id = id;
 		this.ipAddress = ipAddress;
 		this.port = port;
+		this.acceptedPrepare = false;
 	}
-
+	
 	public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
 	public int getPort() { return port; }
 	public void setPort(int port) { this.port = port; }
@@ -29,6 +31,8 @@ public class Server {
 	public void setAcceptorWriter(PrintWriter acceptorWriter) { this.acceptorWriter = acceptorWriter; }
 	public BufferedReader getAcceptorReader() { return acceptorReader; }
 	public void setAcceptorReader(BufferedReader acceptorReader) { this.acceptorReader = acceptorReader; }
+	public boolean getAcceptedPrepare() { return acceptedPrepare; }
+	public void setAcceptedPrepare(boolean acceptedPrepare) { this.acceptedPrepare = acceptedPrepare; }
 
 	public static void main(String args[]){
 		PaxosServer p2 = new PaxosServer(2);

@@ -89,7 +89,7 @@ public class PaxosServer {
 		}
 	}
 
-	// Setup/Manage ports
+	// Setup/Manage ports, start message flow
 	public void start(){
 		// If: This Server itself is the LEADER
 		if (this.state == "LEADER"){
@@ -108,25 +108,28 @@ public class PaxosServer {
 					acceptor.setAcceptorReader(acceptorRead);
 				}
 
-				// Wait for message from Redis YCSB server, send it to Paxos Acceptors 
 				String ycsbMessage;
 				PrintWriter ycsbWriter = new PrintWriter(new OutputStreamWriter(redisYcsbSocket.getOutputStream()));
 				BufferedReader ycsbReader = new BufferedReader(new InputStreamReader(redisYcsbSocket.getInputStream()));
 				String acceptorMessage;
 				int numPromises = 0;
-				
+
+				// Wait for message from Redis YCSB server, send it to Paxos Acceptors 
 				while (true){
-					
+
+					String prepareRPC;
+					String acceptRPC;
+
 					// When there is a message from YCSB server, initiate Paxos.
 					while ((ycsbMessage = ycsbReader.readLine()) != null){
-						
+
 						numPromises = 0;
-						int majority = (this.getParticipants().size() + 1)/2 + 1;
+						int majority = (this.getParticipants().size() + 1)/2;
 
 						System.out.println("Read from YcSB : " + ycsbMessage);
 
 						// Broadcast PrepareRPC to all Acceptors
-						String prepareRPC = PaxosPrepareRPC();
+						prepareRPC = PaxosPrepareRPC(ycsbMessage);
 
 						// Phase 1
 						for (Server acceptor : this.participants){
@@ -145,19 +148,71 @@ public class PaxosServer {
 								if (acceptorMessage.equals("PROMISE"))
 								{
 									numPromises++;
+									acceptor.setAcceptedPrepare(true);
 								}
 							}
 						}
 
 						// Testing
 						System.out.println("Number of Promises: " + numPromises);
-						
+
 						// Check if Commit quorum achieved
 						if (numPromises >= majority){
+
+							int commitAccept = 0;
+
+							// Get acceptRPC
+							acceptRPC = PaxosAcceptRPC(ycsbMessage);
+
 							// Phase 2	
+							for (Server acceptor : this.participants){
+
+								// Check if Acceptor socket is still open
+								if (!acceptor.getAcceptorSocket().isClosed()){
+
+									// Send Paxos ACCEPT message to servers that responded PROMISE
+									if (acceptor.getAcceptedPrepare())
+									{
+										acceptor.setAcceptedPrepare(false);
+										acceptor.getAcceptorWriter().println(acceptRPC);
+										acceptor.getAcceptorWriter().flush();
+
+										// Read reply message from Acceptor
+										acceptorMessage = acceptor.getAcceptorReader().readLine();
+
+										if (acceptorMessage.contains("COMMIT=SUCCESS")){
+											System.out.println(acceptorMessage);
+											commitAccept++;
+										}
+									}
+								}
+							}
+							
+							if (commitAccept >= majority){
+								ycsbWriter.println("COMMIT");
+								ycsbWriter.flush();
+							}
 						}
 						else
 						{
+							// Send ABORT to servers that responded with PROMISE
+							String abortRPC = PaxosAbortRPC(ycsbMessage);
+
+							for (Server acceptor : this.participants){
+
+								// Check if Acceptor socket is still open
+								if (!acceptor.getAcceptorSocket().isClosed()){
+
+									// Send ABORT message to servers that responded PROMISE
+									if (acceptor.getAcceptedPrepare())
+									{
+										acceptor.setAcceptedPrepare(false);
+										acceptor.getAcceptorWriter().println(abortRPC);
+										acceptor.getAcceptorWriter().flush();
+									}
+								}
+							}
+
 							ycsbWriter.println("ABORT");
 							ycsbWriter.flush();
 						}
@@ -180,14 +235,9 @@ public class PaxosServer {
 
 				while (true)
 				{
+					// First connect to corresponding 2PC module
 					leaderMessage = leaderReader.readLine();
 					System.out.println("Read from LEADER : " + leaderMessage);
-
-					//					if (leaderMessage.equals("HELLO")){
-					//						System.out.println("Sending message to leader...");
-					//						leaderWriter.println("Reply from " + "Server " + this.getId());
-					//						leaderWriter.flush();
-					//					}
 
 					// If PaxosPrepareRPC
 					if (leaderMessage.contains("PREPARE")){
@@ -201,12 +251,16 @@ public class PaxosServer {
 						String serverIdString = extract[1].substring(extract[1].indexOf("=")+1);
 						int serverID = Integer.parseInt(serverIdString);
 
+						// Get values
+						String value = extract[2].substring(extract[2].indexOf("=")+1);
+
 						// Check with LatestAcceptedProposal if received proposal is latest or not
 						// If received proposal is latest
 						if (receivedMaxRound > this.minProposal)
 						{	
 							this.minProposal = receivedMaxRound;
-							// Connect to 2PC module, check for its response, send PROMISE or NACK accordingly
+
+							// Send VALUE to 2PC module, check for its response(ready to commit or not), send PROMISE or NACK accordingly
 							leaderWriter.println("PROMISE");
 							leaderWriter.flush();
 							// Else send NACK
@@ -222,6 +276,29 @@ public class PaxosServer {
 					// If PaxosAcceptRPC
 					if (leaderMessage.contains("ACCEPT")){
 
+						String[] extract = leaderMessage.split("\\s+");
+
+						// Get maxRound
+						String maxRoundString = extract[0].substring(extract[0].indexOf("=")+1);
+						int receivedMaxRound = Integer.parseInt(maxRoundString);
+
+						// Get Server ID
+						String serverIdString = extract[1].substring(extract[1].indexOf("=")+1);
+						int serverID = Integer.parseInt(serverIdString);
+
+						// Get values
+						String value = extract[2].substring(extract[2].indexOf("=")+1);
+
+						if (receivedMaxRound >= this.minProposal){
+							this.minProposal = receivedMaxRound;
+							// Give a go-ahead to 2PC module to commit the value. Once acknowledgement received, send COMMIT to LEADER
+							leaderWriter.println("COMMIT=SUCCESS");
+							leaderWriter.flush();
+						}
+					}
+					// If ABORT
+					if (leaderMessage.contains("ABORT")){
+						// Send ABORT message to 2PC module
 					}
 				}
 			}
@@ -233,12 +310,26 @@ public class PaxosServer {
 	}
 
 	// Generate Paxos PrepareRPC
-	private String PaxosPrepareRPC(){
-		// Prepare message will be of the form, "PREPARE=123 ID=1"
+	private String PaxosPrepareRPC(String ycsbMessage){
+		// Prepare message will be of the form, "PREPARE=123 ID=1 COMMIT=X:2 Y:3 Z:4"
 		// Proposal no = "(maxRound + 1)" + "Server ID"
 		this.maxRound++;
-		String proposeMessage = "PREPARE=" + this.maxRound + " ID=" + this.id;
+		String proposeMessage = "PREPARE=" + this.maxRound + " ID=" + this.id + " " + ycsbMessage;
 		return proposeMessage;
+	}
+
+	// Generate Paxos AcceptRPC
+	private String PaxosAcceptRPC(String ycsbMessage){
+		// Accept message will be of the form, "ACCEPT=1 ID=1 COMMIT=X:2 Y:3 Z:4"
+		String acceptMessage = "ACCEPT=" + this.maxRound + " ID=" + this.id + " " + ycsbMessage;
+		return acceptMessage;
+	}
+
+	// Generate Paxos AbortRPC
+	private String PaxosAbortRPC(String ycsbMessage){
+		// Abort message will be of the form, "ABORT=1 ID=1 COMMIT=X:2 Y:3 Z:4"
+		String abortMessage = "ABORT=" + this.maxRound + "ID=" + this.id + " " + ycsbMessage;
+		return abortMessage;
 	}
 
 	public static void main(String args[]){

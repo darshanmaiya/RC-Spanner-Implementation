@@ -30,7 +30,6 @@ import com.yahoo.ycsb.DBException;
 import com.yahoo.ycsb.Status;
 import com.yahoo.ycsb.StringByteIterator;
 
-import edu.ucsb.cs274.paxos.Server;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Protocol;
 
@@ -59,7 +58,6 @@ public class RedisClient extends DB {
   public void init() throws DBException {
     System.out.println("in init");
     System.out.println("calling paxos");
-    Server.main(null);
     Properties props = getProperties();
     int port;
 

@@ -13,27 +13,26 @@ public class RedisYcsb {
 		RedisYcsb r = new RedisYcsb();
 		
 		try{
-			r.leaderSocket = new Socket("127.0.0.1", 5001);
+			r.leaderSocket = new Socket("127.0.0.1", 5000);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	
 		// Send message to Paxos LEADER
-		while(true){
+		//while(true){
 			try {
 				PrintWriter acceptorOutput = new PrintWriter(new OutputStreamWriter(r.leaderSocket.getOutputStream()));
-				Thread.sleep(5000);
 				
 				// Send Commit message to test Paxos. Assuming message contains buffered writes along with Commit message 
 				acceptorOutput.println("COMMIT=X:2 Y:3 Z:4");
 				acceptorOutput.flush();
 				acceptorOutput.println("COMMIT=X:12 Y:13 Z:14");
 				acceptorOutput.flush();
-				acceptorOutput.println("COMMIT=X:22 Y:23 Z:24");
+				acceptorOutput.println("COMMIT=X:32 Y:33 Z:34");
 				acceptorOutput.flush();
 			}catch (IOException e){
 				e.printStackTrace();
 			}
-		}
+		//}
 	}
 }

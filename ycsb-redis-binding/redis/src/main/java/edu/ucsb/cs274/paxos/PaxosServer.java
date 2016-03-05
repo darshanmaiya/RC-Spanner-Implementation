@@ -100,8 +100,9 @@ public class PaxosServer {
 		// If: This Server itself is the LEADER
 		if (this.state == "LEADER"){
 			try {
-				// Connect to redis YCSB server
-				this.redisYcsbSocket = new Socket(redisYcsbServer.getIpAddress(), redisYcsbServer.getPort());
+				// Open socket for Redis client to connect
+                ServerSocket leaderServerSocket = new ServerSocket(this.port);
+                this.redisYcsbSocket = leaderServerSocket.accept();
 
 				// Connect to all participants
 				for (Server acceptor : this.participants){

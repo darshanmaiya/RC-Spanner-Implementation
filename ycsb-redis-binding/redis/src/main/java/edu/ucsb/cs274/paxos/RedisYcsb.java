@@ -2,7 +2,6 @@ package edu.ucsb.cs274.paxos;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.net.ServerSocket;
 import java.net.Socket;
 
 public class RedisYcsb {
@@ -14,15 +13,17 @@ public class RedisYcsb {
 		RedisYcsb r = new RedisYcsb();
 		
 		try{
-			r.leaderSocket = new Socket("127.0.0.1", 6001);
+			r.leaderSocket = new Socket("127.0.0.1", 5001);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-	//	 Send message to Paxos LEADER
+	
+		// Send message to Paxos LEADER
 		while(true){
 			try {
 				PrintWriter acceptorOutput = new PrintWriter(new OutputStreamWriter(r.leaderSocket.getOutputStream()));
 				Thread.sleep(5000);
+				
 				// Send Commit message to test Paxos. Assuming message contains buffered writes along with Commit message 
 				acceptorOutput.println("COMMIT=X:2 Y:3 Z:4");
 				acceptorOutput.flush();

@@ -8,8 +8,8 @@ public class ServerInfo {
 	private String ipAddress;
 	private int port;
 	private Socket acceptorSocket;
-	private PrintWriter acceptorWriter;
-	private BufferedReader acceptorReader;
+	private ObjectOutputStream acceptorWriter;
+	private ObjectInputStream acceptorReader;
 	private boolean acceptedPrepare;
 
 	// Server constructor
@@ -28,10 +28,10 @@ public class ServerInfo {
 	public String getIpAddress() { return ipAddress; }
 	public Socket getAcceptorSocket() { return acceptorSocket; }
 	public void setAcceptorSocket(Socket acceptorSocket) { this.acceptorSocket = acceptorSocket; }
-	public PrintWriter getAcceptorWriter() { return acceptorWriter; }
-	public void setAcceptorWriter(PrintWriter acceptorWriter) { this.acceptorWriter = acceptorWriter; }
-	public BufferedReader getAcceptorReader() { return acceptorReader; }
-	public void setAcceptorReader(BufferedReader acceptorReader) { this.acceptorReader = acceptorReader; }
+	public ObjectOutputStream getAcceptorWriter() { return acceptorWriter; }
+	public void setAcceptorWriter(ObjectOutputStream acceptorWriter) { this.acceptorWriter = acceptorWriter; }
+	public ObjectInputStream getAcceptorReader() { return acceptorReader; }
+	public void setAcceptorReader(ObjectInputStream acceptorReader) { this.acceptorReader = acceptorReader; }
 	public boolean getAcceptedPrepare() { return acceptedPrepare; }
 	public void setAcceptedPrepare(boolean acceptedPrepare) { this.acceptedPrepare = acceptedPrepare; }
 }

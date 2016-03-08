@@ -78,31 +78,25 @@ public class Server {
 	// Setup/Manage ports, start message flow
 	public void start () {
 		try{
-			String leaderMessage;
+			Message leaderMessage;
 			this.serverSocket = new ServerSocket(this.port);
 			Socket leaderSocket = this.serverSocket.accept();
 
 			// Once connected to LEADER, listen for Paxos message from the LEADER
-			PrintWriter leaderWriter = new PrintWriter(new OutputStreamWriter(leaderSocket.getOutputStream()));
-			BufferedReader leaderReader = new BufferedReader(new InputStreamReader(leaderSocket.getInputStream()));
+			ObjectOutputStream leaderWriter = new ObjectOutputStream(leaderSocket.getOutputStream());
+			ObjectInputStream leaderReader = new ObjectInputStream(leaderSocket.getInputStream());
 
 			while (true)
 			{
 				// First connect to corresponding 2PC module
-				leaderMessage = leaderReader.readLine();
-				System.out.println("Read from LEADER : " + leaderMessage);
+				leaderMessage = (Message) leaderReader.readObject();
+				System.out.println("Read from LEADER:\n" + leaderMessage);
 
 				// If PaxosPrepareRPC
-				if (leaderMessage.contains("PREPARE")){
-					String[] extract = leaderMessage.split("\\s+");
-
+				if (leaderMessage.getCommand() == Command.PREPARE) {
 					// Get maxRound
-					String maxRoundString = extract[0].substring(extract[0].indexOf("=")+1);
-					int receivedMaxRound = Integer.parseInt(maxRoundString);
+					int receivedMaxRound = Integer.parseInt(leaderMessage.getValue());
 					
-					// Get values
-					//String value = extract[1].substring(extract[1].indexOf("=")+1);
-
 					// Check with LatestAcceptedProposal if received proposal is latest or not
 					// If received proposal is latest
 					if (receivedMaxRound > this.minProposal)
@@ -110,42 +104,62 @@ public class Server {
 						this.minProposal = receivedMaxRound;
 
 						// Send VALUE to 2PC module, check for its response(ready to commit or not), send PROMISE or NACK accordingly
-						leaderWriter.println("PROMISE");
+						leaderWriter.writeObject(new Message(Command.PROMISE));
 						leaderWriter.flush();
 						// Else send NACK
 					}
 					// Received proposal is not latest
 					else{
 						// Send NACK
-						leaderWriter.println("NACK");
+						leaderWriter.writeObject(new Message(Command.NACK));
 						leaderWriter.flush();
 					}
 				}
 
 				// If PaxosAcceptRPC
-				if (leaderMessage.contains("ACCEPT")){
-
-					String[] extract = leaderMessage.split("\\s+");
+				if (leaderMessage.getCommand()  == Command.ACCEPT) {
 
 					// Get maxRound
-					String maxRoundString = extract[0].substring(extract[0].indexOf("=") + 1);
-					int receivedMaxRound = Integer.parseInt(maxRoundString);
-
-					// Get values
-					String value = leaderMessage.substring(leaderMessage.indexOf("COMMIT") + 7);
-
+					int receivedMaxRound = Integer.parseInt(leaderMessage.getValue());
+					
 					if (receivedMaxRound >= this.minProposal){
 						this.minProposal = receivedMaxRound;
-						// "COMMIT=X:2 Y:3 Z:4"
-						jedis.hset("ipAddress" + this.id, "", value);
+						
+						jedis.hmset(leaderMessage.getKey(), leaderMessage.getValues());
 						// Give a go-ahead to 2PC module to commit the value. Once acknowledgement received, send COMMIT to LEADER
-						leaderWriter.println("COMMIT=SUCCESS");
+						leaderWriter.writeObject(new Message(Command.SUCCESS));
 						leaderWriter.flush();
 					}
 				}
 				// If ABORT
-				if (leaderMessage.contains("ABORT")){
+				if (leaderMessage.getCommand()  == Command.ABORT) {
 					// Send ABORT message to 2PC module
+				}
+				
+				if (leaderMessage.getCommand()  == Command.READ) {
+
+					String key = leaderMessage.getKey();
+					Set<String> fields = leaderMessage.getFields();
+				    HashMap<String, String> result = new HashMap<>();
+					// Get values
+					if (fields == null) {
+				      result.putAll(jedis.hgetAll(leaderMessage.getKey()));
+				    } else {
+				      String[] fieldArray =
+				          (String[]) leaderMessage.getFields().toArray(new String[fields.size()]);
+				      List<String> values = jedis.hmget(key, fieldArray);
+
+				      Iterator<String> fieldIterator = fields.iterator();
+				      Iterator<String> valueIterator = values.iterator();
+
+				      while (fieldIterator.hasNext() && valueIterator.hasNext()) {
+				        result.put(fieldIterator.next(),
+				            valueIterator.next());
+				      }
+				    }
+					// Give a go-ahead to 2PC module to commit the value. Once acknowledgement received, send COMMIT to LEADER
+					leaderWriter.writeObject(new Message(Command.SUCCESS, key, null, result));
+					leaderWriter.flush();
 				}
 			}
 		}

@@ -36,6 +36,7 @@ import redis.clients.jedis.Protocol;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.Vector;
@@ -86,21 +87,21 @@ public class RedisClient extends DB {
    * Start a database transaction. 
    */
   public void start() throws DBException {
-    System.out.println("in start transaction");
+    System.out.println("start transaction");
   }
 
   /**
    * Commit the current database transaction. 
    */
   public void commit() throws DBException {
-    System.out.println("in commit transaction");
+    System.out.println("commit transaction");
   }
 
   /**
    * Abort the current database transaction. 
    */
   public void abort() throws DBException {
-    System.out.println("in abort transaction");
+    System.out.println("abort transaction");
   }
   
   /*
@@ -118,10 +119,11 @@ public class RedisClient extends DB {
   @Override
   public Status read(String table, String key, Set<String> fields,
       HashMap<String, ByteIterator> result) {
-    System.out.println("in read with key:" + key);
     if (fields == null) {
+        System.out.println("in read with key:" + key + " and no fields");
       StringByteIterator.putAllAsByteIterators(result, jedis.hgetAll(key));
     } else {
+        System.out.println("in read with key:" + key + " and fields and values listed below");
       String[] fieldArray =
           (String[]) fields.toArray(new String[fields.size()]);
       List<String> values = jedis.hmget(key, fieldArray);
@@ -130,8 +132,11 @@ public class RedisClient extends DB {
       Iterator<String> valueIterator = values.iterator();
 
       while (fieldIterator.hasNext() && valueIterator.hasNext()) {
-        result.put(fieldIterator.next(),
-            new StringByteIterator(valueIterator.next()));
+    	  String fld = fieldIterator.next();
+    	  String val = valueIterator.next();
+    	  System.out.println("in read with field:" + fld + " and value: " + val);
+        result.put(fld,
+            new StringByteIterator(val));
       }
       assert !fieldIterator.hasNext() && !valueIterator.hasNext();
     }
@@ -142,6 +147,9 @@ public class RedisClient extends DB {
   public Status insert(String table, String key,
       HashMap<String, ByteIterator> values) {
     System.out.println("in insert");
+    for (Map.Entry<String, ByteIterator> entry : values.entrySet()) {
+        System.out.println(entry.getKey() + "/" + entry.getValue().toString());
+    }
     if (jedis.hmset(key, StringByteIterator.getStringMap(values))
         .equals("OK")) {
       jedis.zadd(INDEX_KEY, hash(key), key);

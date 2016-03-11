@@ -1,9 +1,7 @@
 package edu.ucsb.cs274.paxos;
 
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.List;
 
 public class WriteObject implements Serializable {
 	

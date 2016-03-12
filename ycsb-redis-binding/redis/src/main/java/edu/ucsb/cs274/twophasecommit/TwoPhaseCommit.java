@@ -1,3 +1,5 @@
+package edu.ucsb.cs274.twophasecommit;
+
 import redis.clients.jedis.Jedis;
 
 import java.io.PrintWriter;
@@ -22,8 +24,6 @@ public class TwoPhaseCommit {
             e.printStackTrace();
         }
     }
-
-
 
     public void initialize() throws Exception{
         locks = new ArrayList<String>();

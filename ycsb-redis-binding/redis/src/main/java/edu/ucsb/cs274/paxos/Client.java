@@ -76,35 +76,35 @@ public class Client {
 				acceptor.setAcceptorReader(acceptorRead);
 			}
 
-			Message ycsbMessage;
+			WriteObject ycsbMessage;
 			ObjectOutputStream ycsbWriter = new ObjectOutputStream(redisClientSocket.getOutputStream());
 			ObjectInputStream ycsbReader = new ObjectInputStream(redisClientSocket.getInputStream());
-			Message acceptorMessage = null;
+			WriteObject acceptorMessage = null;
 			int numPromises = 0;
 
 			// Wait for message from Redis YCSB client, send it to Paxos Acceptors 
 			while (true) {
 
-				Message prepareRPC;
-				Message acceptRPC;
+				WriteObject prepareRPC;
+				WriteObject acceptRPC;
+				WriteObject abortRPC;
 
 				// When there is a message from YCSB server, initiate Paxos.
 				try {
-					ycsbMessage = (Message)ycsbReader.readObject();
+					ycsbMessage = (WriteObject)ycsbReader.readObject();
 				} catch (EOFException eof) {
 					continue;
 				}
 				
 				Command command = ycsbMessage.getCommand();
-				System.out.println("Message from YCSB Client:\n" + ycsbMessage);
+				System.out.println("Message from YCSB Client:\n");
 				int majority = (this.getAcceptors().size()/2) + 1;
 				
 				if (command == Command.COMMIT) {
 					numPromises = 0;
 
-
 					// Broadcast PrepareRPC to all Acceptors
-					prepareRPC = PaxosPrepareRPC();
+					prepareRPC = PaxosPrepareRPC(ycsbMessage);
 
 					// Phase 1
 					for (ServerInfo acceptor : this.acceptors) {
@@ -117,7 +117,7 @@ public class Client {
 							acceptor.getAcceptorWriter().flush();
 							
 							// Read reply message from Acceptor
-							acceptorMessage = (Message)acceptor.getAcceptorReader().readObject();
+							acceptorMessage = (WriteObject)acceptor.getAcceptorReader().readObject();
 
 							// Check if PROMISE or NACK
 							if (acceptorMessage.getCommand() == Command.PROMISE) {
@@ -135,9 +135,9 @@ public class Client {
 
 						int commitAccept = 0;
 
-						// Get acceptRPC
+						// Create acceptRPC
 						acceptRPC = PaxosAcceptRPC(ycsbMessage);
-
+						
 						// Phase 2	
 						for (ServerInfo acceptor : this.acceptors){
 
@@ -152,7 +152,7 @@ public class Client {
 									acceptor.getAcceptorWriter().flush();
 
 									// Read reply message from Acceptor
-									acceptorMessage = (Message)acceptor.getAcceptorReader().readObject();
+									acceptorMessage = (WriteObject)acceptor.getAcceptorReader().readObject();
 
 									if (acceptorMessage.getCommand() == Command.SUCCESS){
 										System.out.println("Acceptance message: \n" + acceptorMessage);
@@ -163,15 +163,14 @@ public class Client {
 						}
 						
 						if (commitAccept >= majority){
-							ycsbWriter.writeObject(
-									new Message(Command.SUCCESS, ycsbMessage.getKey()));
+							ycsbWriter.writeObject(new WriteObject(Command.SUCCESS, ycsbMessage.getTransactionId()));
 							ycsbWriter.flush();
 						}
 					}
 					else
 					{
 						// Send ABORT to servers that responded with PROMISE
-						Message abortRPC = PaxosAbortRPC();
+						abortRPC = PaxosAbortRPC(ycsbMessage.getTransactionId());
 
 						for (ServerInfo acceptor : this.acceptors) {
 
@@ -188,8 +187,7 @@ public class Client {
 							}
 						}
 
-						ycsbWriter.writeObject(
-								new Message(Command.ABORT, ycsbMessage.getKey()));
+						ycsbWriter.writeObject(new WriteObject(Command.ABORT, ycsbMessage.getTransactionId()));
 						ycsbWriter.flush();
 					}
 				} else if (command == Command.READ) {
@@ -205,7 +203,7 @@ public class Client {
 							acceptor.getAcceptorWriter().flush();
 							
 							// Read reply message from Acceptor
-							acceptorMessage = (Message)acceptor.getAcceptorReader().readObject();
+							acceptorMessage = (WriteObject)acceptor.getAcceptorReader().readObject();
 
 							// Check if SUCCESS
 							if (acceptorMessage.getCommand() == Command.SUCCESS)
@@ -228,31 +226,32 @@ public class Client {
 	}
 
 	// Generate Paxos PrepareRPC
-	private Message PaxosPrepareRPC() {
+	private WriteObject PaxosPrepareRPC(WriteObject ycsbMessage) {
 		// Prepare message will be of the form, "PREPARE=123 COMMIT=X:2 Y:3 Z:4"
 		// Proposal no = "(maxRound + 1)"
 		this.maxRound++;
-		Message proposeMessage = new Message(Command.PREPARE, null, String.valueOf(this.maxRound));
+
+		WriteObject proposeObject = new WriteObject(Command.PREPARE, ycsbMessage.getTransactionId(), ycsbMessage.getMessages(), this.maxRound);
 		
-		return proposeMessage;
+		return proposeObject;
 	}
 
 	// Generate Paxos AcceptRPC
-	private Message PaxosAcceptRPC(Message ycsbMessage) {
+	private WriteObject PaxosAcceptRPC(WriteObject ycsbMessage) {
 		// Accept message will be of the form, "ACCEPT=1 COMMIT=X:2 Y:3 Z:4"
-		Message acceptMessage = new Message(ycsbMessage);
-		acceptMessage.setCommand(Command.ACCEPT);
-		acceptMessage.setValue(String.valueOf(this.maxRound));
 		
-		return acceptMessage;
+		WriteObject acceptRPC = new WriteObject(Command.ACCEPT, ycsbMessage.getTransactionId(), ycsbMessage.getMessages(), this.maxRound);
+		
+		return acceptRPC;
 	}
 
 	// Generate Paxos AbortRPC
-	private Message PaxosAbortRPC() {
+	private WriteObject PaxosAbortRPC(long transactionId) {
 		// Abort message will be of the form, "ABORT=1 COMMIT=X:2 Y:3 Z:4"
-		Message abortMessage = new Message(Command.ABORT, null, String.valueOf(this.maxRound));
 		
-		return abortMessage;
+		WriteObject abortRPC = new WriteObject(Command.ABORT, transactionId);
+		
+		return abortRPC;
 	}
 
 	public static void main(String args[]) {

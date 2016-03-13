@@ -1,7 +1,12 @@
 package edu.ucsb.cs274.twophasecommit;
 
+import edu.ucsb.cs274.paxos.Command;
+import edu.ucsb.cs274.paxos.Message;
+import edu.ucsb.cs274.paxos.WriteObject;
 import redis.clients.jedis.Jedis;
 
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -10,7 +15,6 @@ import java.util.Scanner;
 
 public class TwoPhaseCommit {
 
-    ArrayList<String> locks;
     int portNum;
     private Jedis jedis;
 
@@ -26,7 +30,6 @@ public class TwoPhaseCommit {
     }
 
     public void initialize() throws Exception{
-        locks = new ArrayList<String>();
         jedis = new Jedis("localhost", 6001);
         portNum = 8001;
         ServerSocket server = new ServerSocket(portNum);
@@ -35,19 +38,6 @@ public class TwoPhaseCommit {
             System.out.println("new client accepted");
             (new Thread(new RequestHandler(client))).start();
         }
-    }
-
-    public synchronized boolean getLock(String key){
-        if(locks.contains(key)){
-            return false;
-        }
-        locks.add(key);
-        return true;
-    }
-
-    public synchronized void freeLock(String key){
-        locks.remove(key);
-        key.intern().notify();
     }
 
 
@@ -61,32 +51,26 @@ public class TwoPhaseCommit {
 
         public void run(){
             try {
-                Scanner reader = new Scanner(client.getInputStream());
-                String request = reader.nextLine();
+              ObjectInputStream reader = new ObjectInputStream(client.getInputStream());
+              ObjectOutputStream writer = new ObjectOutputStream(client.getOutputStream());
 
-                String key = request.split(" ")[0];
-                String value = request.split(" ")[1];
-                while (!getLock(key)) {
-                    synchronized (key.intern()) {
-                        key.intern().wait();
-                    }
+              WriteObject request = (WriteObject)reader.readObject();
+
+              writer.writeObject(new Message(Command.ACCEPT));
+              writer.flush();
+              Message response = (Message)reader.readObject();
+              if(response.getCommand() == Command.ACCEPT){
+                for(Message m: request.getMessages()){
+                  jedis.hmset(m.getKey(), m.getValues());
                 }
+                writer.writeObject(new Message(Command.SUCCESS));
+              }
+              else{
+                writer.writeObject(new Message(Command.FAILURE));
 
-                PrintWriter out = new PrintWriter(client.getOutputStream());
-
-                out.println("Accept");
-                out.flush();
-                String commit = reader.nextLine();
-
-                if(commit.contains("Commit")){
-                    jedis.set(key, value);
-
-                }
+              }
 
 
-                freeLock(key);
-                out.println("Done");
-                out.flush();
             } catch (Exception e){
                 e.printStackTrace();
             }

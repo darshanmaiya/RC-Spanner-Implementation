@@ -8,5 +8,6 @@ public enum Command {
 	PREPARE,
 	SUCCESS,		// To send read value from Client to Redis Client
 	PROMISE,
-	NACK
+	NACK,
+	FAILURE
 }

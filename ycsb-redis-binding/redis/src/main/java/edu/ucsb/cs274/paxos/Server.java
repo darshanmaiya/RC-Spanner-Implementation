@@ -17,6 +17,7 @@ public class Server {
 	private String 						redisServer;
 	private int							redisPort;
 	private Jedis 						jedis;
+	private int							twoPcPort;
 
 	// Getters and Setters
 	public int getId(){ return this.id; }
@@ -65,6 +66,9 @@ public class Server {
 			// Connect to redis server
 			jedis = new Jedis(this.redisServer, this.redisPort);
 			jedis.connect();
+			
+			// Get 2PC-Port
+			this.twoPcPort = Integer.valueOf(properties.getProperty("twoPcPort"));
 		} 
 		catch(Exception e){
 			e.printStackTrace();
@@ -85,6 +89,12 @@ public class Server {
 			// Once connected to LEADER, listen for Paxos message from the LEADER
 			ObjectOutputStream leaderWriter = new ObjectOutputStream(leaderSocket.getOutputStream());
 			ObjectInputStream leaderReader = new ObjectInputStream(leaderSocket.getInputStream());
+			
+			Message twoPcReply;
+			
+			Socket twoPc = new Socket("127.0.0.1", this.twoPcPort);
+			ObjectOutputStream twoPcWrite = new ObjectOutputStream(twoPc.getOutputStream());
+			ObjectInputStream twoPcRead = new ObjectInputStream(twoPc.getInputStream());
 
 			while (true)
 			{
@@ -103,10 +113,25 @@ public class Server {
 					{	
 						this.minProposal = receivedMaxRound;
 
-						// Send VALUE to 2PC module, check for its response(ready to commit or not), send PROMISE or NACK accordingly
-						leaderWriter.writeObject(new WriteObject(Command.PROMISE, leaderMessage.getTransactionId()));
-						leaderWriter.flush();
+						// Send VALUE to 2PC module, check for its response(ready to commit or not), send PROMISE or NACK accordingly						
+						
+						// Send received WriteObject to 2PC co-ordinator for confirmation
+						twoPcWrite.writeObject(leaderMessage);
+						
+						// Wait till receive 'COMMIT' 
+						twoPcReply = (Message)twoPcRead.readObject();
+						
+						if (twoPcReply.getCommand() == Command.COMMIT)
+						{	
+							leaderWriter.writeObject(new WriteObject(Command.PROMISE, leaderMessage.getTransactionId()));
+							leaderWriter.flush();
+						}
 						// Else send NACK
+						else{
+							// Send NACK
+							leaderWriter.writeObject(new WriteObject(Command.NACK, leaderMessage.getTransactionId()));
+							leaderWriter.flush();
+						}
 					}
 					// Received proposal is not latest
 					else{
@@ -125,18 +150,32 @@ public class Server {
 					if (receivedMaxRound >= this.minProposal){
 						this.minProposal = receivedMaxRound;
 					
-						for (Message m : leaderMessage.getMessages())
+					/*	for (Message m : leaderMessage.getMessages())
 						{
 							jedis.hmset(m.getKey(), m.getValues());
 						}
+					*/
 						// Give a go-ahead to 2PC module to commit the value. Once acknowledgement received, send COMMIT to LEADER
-						leaderWriter.writeObject(new WriteObject(Command.SUCCESS, leaderMessage.getTransactionId()));
-						leaderWriter.flush();
+						twoPcWrite.writeObject(new Message(Command.ACCEPT));
+						
+						// Check for SUCCESS for 2PC Co-ordinator
+						twoPcReply = (Message)twoPcRead.readObject();
+						
+						if (twoPcReply.getCommand() == Command.SUCCESS){
+							leaderWriter.writeObject(new WriteObject(Command.SUCCESS, leaderMessage.getTransactionId()));
+							leaderWriter.flush();
+						}
+						else
+						{
+							leaderWriter.writeObject(new WriteObject(Command.FAILURE, leaderMessage.getTransactionId()));
+							leaderWriter.flush();
+						}
 					}
 				}
 				// If ABORT
 				if (leaderMessage.getCommand()  == Command.ABORT) {
 					// Send ABORT message to 2PC module
+					twoPcWrite.writeObject(new Message(Command.ACCEPT));
 				}
 				
 				if (leaderMessage.getCommand()  == Command.READ) {

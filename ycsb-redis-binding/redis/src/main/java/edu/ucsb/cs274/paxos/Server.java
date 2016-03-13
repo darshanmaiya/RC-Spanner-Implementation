@@ -118,6 +118,7 @@ public class Server {
 						
 						// Send received WriteObject to 2PC co-ordinator for confirmation
 						twoPcWrite.writeObject(leaderMessage);
+						twoPcWrite.flush();
 						
 						// Wait till receive 'COMMIT' 
 						twoPcReply = (Message)twoPcRead.readObject();

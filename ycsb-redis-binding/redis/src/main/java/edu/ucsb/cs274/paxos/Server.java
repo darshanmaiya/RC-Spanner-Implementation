@@ -102,10 +102,11 @@ public class Server {
 				Socket twoPc = new Socket("127.0.0.1", this.twoPcPort);
 				ObjectOutputStream twoPcWrite = new ObjectOutputStream(twoPc.getOutputStream());
 				ObjectInputStream twoPcRead = new ObjectInputStream(twoPc.getInputStream());
-
 				// If PaxosPrepareRPC
 				if (leaderMessage.getCommand() == Command.PREPARE) {
-					// Get maxRound
+          System.out.println("Prepare");
+
+          // Get maxRound
 					int receivedMaxRound = leaderMessage.getMaxVal();
 					
 					// Check with LatestAcceptedProposal if received proposal is latest or not
@@ -137,7 +138,8 @@ public class Server {
 					}
 					// Received proposal is not latest
 					else{
-						// Send NACK
+
+            // Send NACK
 						leaderWriter.writeObject(new WriteObject(Command.NACK, leaderMessage.getTransactionId()));
 						leaderWriter.flush();
 					}
@@ -145,7 +147,7 @@ public class Server {
 
 				// If PaxosAcceptRPC
 				if (leaderMessage.getCommand() == Command.ACCEPT) {
-
+          System.out.println("Accept");
 					// Get maxRound
 					int receivedMaxRound = leaderMessage.getMaxVal();
 					

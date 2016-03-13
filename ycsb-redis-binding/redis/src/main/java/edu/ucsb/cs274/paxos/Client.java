@@ -269,33 +269,33 @@ public class Client {
 		Thread thread1 = new Thread(myRunnable1);
 		thread1.start();
 		
-		Runnable myRunnable2 = new Runnable(){
-
-		     public void run(){
-		        System.out.println("Starting paxos server 2");
-
-				Server p2 = new Server(2);
-				p2.initialize();
-				p2.start();
-		     }
-		};
-		
-		Thread thread2 = new Thread(myRunnable2);
-		thread2.start();
-		
-		Runnable myRunnable3 = new Runnable(){
-
-		     public void run(){
-		        System.out.println("Starting paxos server 3");
-
-				Server p3 = new Server(3);
-				p3.initialize();
-				p3.start();
-		     }
-		};
-		
-		Thread thread3 = new Thread(myRunnable3);
-		thread3.start();
+//		Runnable myRunnable2 = new Runnable(){
+//
+//		     public void run(){
+//		        System.out.println("Starting paxos server 2");
+//
+//				Server p2 = new Server(2);
+//				p2.initialize();
+//				p2.start();
+//		     }
+//		};
+//
+//		Thread thread2 = new Thread(myRunnable2);
+//		thread2.start();
+//
+//		Runnable myRunnable3 = new Runnable(){
+//
+//		     public void run(){
+//		        System.out.println("Starting paxos server 3");
+//
+//				Server p3 = new Server(3);
+//				p3.initialize();
+//				p3.start();
+//		     }
+//		};
+//
+//		Thread thread3 = new Thread(myRunnable3);
+//		thread3.start();
 		
 		try {
 			Thread.sleep(2000);

@@ -15,13 +15,10 @@ public class ClientRequestHandler implements Runnable {
   WriteObject wo;
   ObjectOutputStream paxosOut;
   ObjectInputStream paxosIn;
+  Socket request;
   ClientRequestHandler(Socket request){
     try {
-      ObjectInputStream readRequest = new ObjectInputStream(request.getInputStream());
-      paxosOut = new ObjectOutputStream(request.getOutputStream());
-      paxosIn = new ObjectInputStream(request.getInputStream());
-      wo = (WriteObject) readRequest.readObject();
-
+      this.request = request;
     }
     catch (Exception e){
       e.printStackTrace();
@@ -30,6 +27,18 @@ public class ClientRequestHandler implements Runnable {
 
   public void run() {
     try {
+      paxosOut = new ObjectOutputStream(request.getOutputStream());
+      paxosIn = new ObjectInputStream(request.getInputStream());
+      Object x =  paxosIn.readObject();
+      if(x instanceof Message){
+        Message m = (Message)x;
+        System.out.println("Message: " + m.getCommand());
+      }
+      else{
+        wo = (WriteObject)x;
+        System.out.println("Write Object: " + wo.getCommand());
+
+      }
       Socket sOne = new Socket("localhost", 8001);
       Socket sTwo = new Socket("localhost", 8002);
       Socket sThree = new Socket("localhost", 8003);

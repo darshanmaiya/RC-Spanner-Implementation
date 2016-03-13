@@ -92,15 +92,16 @@ public class Server {
 			
 			Message twoPcReply;
 			
-			Socket twoPc = new Socket("127.0.0.1", this.twoPcPort);
-			ObjectOutputStream twoPcWrite = new ObjectOutputStream(twoPc.getOutputStream());
-			ObjectInputStream twoPcRead = new ObjectInputStream(twoPc.getInputStream());
-
 			while (true)
 			{
 				// First connect to corresponding 2PC module
+				
 				leaderMessage = (WriteObject) leaderReader.readObject();
-				System.out.println("Read from LEADER:\n" + leaderMessage);
+				System.out.println("Read from LEADER:\n");
+				
+				Socket twoPc = new Socket("127.0.0.1", this.twoPcPort);
+				ObjectOutputStream twoPcWrite = new ObjectOutputStream(twoPc.getOutputStream());
+				ObjectInputStream twoPcRead = new ObjectInputStream(twoPc.getInputStream());
 
 				// If PaxosPrepareRPC
 				if (leaderMessage.getCommand() == Command.PREPARE) {
@@ -204,6 +205,7 @@ public class Server {
 					leaderWriter.writeObject(new WriteObject(Command.SUCCESS, leaderMessage.getTransactionId()));
 					leaderWriter.flush();
 				}
+				twoPc.close();
 			}
 		}
 

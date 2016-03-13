@@ -43,7 +43,7 @@ public class Server {
 			try {
 				properties.load(is);
 			} catch (IOException e) {
-				
+
 				e.printStackTrace();
 				return;
 			}
@@ -58,15 +58,15 @@ public class Server {
 					this.redisPort = Integer.valueOf(properties.getProperty("redisPort" + i));
 				} else {
 					ServerInfo server = new ServerInfo(i, propIpAddress, propPort);
-					
+
 					this.acceptors.add(server);
 				}
 			}
-			
+
 			// Connect to redis server
 			jedis = new Jedis(this.redisServer, this.redisPort);
 			jedis.connect();
-			
+
 			// Get 2PC-Port
 			this.twoPcPort = Integer.valueOf(properties.getProperty("twoPcPort"));
 		} 
@@ -74,7 +74,7 @@ public class Server {
 			e.printStackTrace();
 		}
 	}
-	
+
 	public void finalize () {
 		jedis.disconnect();
 	}
@@ -89,26 +89,25 @@ public class Server {
 			// Once connected to LEADER, listen for Paxos message from the LEADER
 			ObjectOutputStream leaderWriter = new ObjectOutputStream(leaderSocket.getOutputStream());
 			ObjectInputStream leaderReader = new ObjectInputStream(leaderSocket.getInputStream());
-			
+
 			Message twoPcReply;
-			
+
 			while (true)
 			{
-				// First connect to corresponding 2PC module
-				
 				leaderMessage = (WriteObject) leaderReader.readObject();
 				System.out.println("Read from LEADER:\n");
-				
-				Socket twoPc = new Socket("127.0.0.1", this.twoPcPort);
-				ObjectOutputStream twoPcWrite = new ObjectOutputStream(twoPc.getOutputStream());
-				ObjectInputStream twoPcRead = new ObjectInputStream(twoPc.getInputStream());
+
 				// If PaxosPrepareRPC
 				if (leaderMessage.getCommand() == Command.PREPARE) {
-          System.out.println("Prepare");
-
-          // Get maxRound
-					int receivedMaxRound = leaderMessage.getMaxVal();
+					System.out.println("Prepare");
 					
+					Socket twoPc = new Socket("127.0.0.1", this.twoPcPort);
+					ObjectOutputStream twoPcWrite = new ObjectOutputStream(twoPc.getOutputStream());
+					ObjectInputStream twoPcRead = new ObjectInputStream(twoPc.getInputStream());
+					
+					// Get maxRound
+					int receivedMaxRound = leaderMessage.getMaxVal();
+
 					// Check with LatestAcceptedProposal if received proposal is latest or not
 					// If received proposal is latest
 					if (receivedMaxRound > this.minProposal)
@@ -116,18 +115,57 @@ public class Server {
 						this.minProposal = receivedMaxRound;
 
 						// Send VALUE to 2PC module, check for its response(ready to commit or not), send PROMISE or NACK accordingly						
-						
+
 						// Send received WriteObject to 2PC co-ordinator for confirmation
 						twoPcWrite.writeObject(leaderMessage);
 						twoPcWrite.flush();
-						
+
 						// Wait till receive 'COMMIT' 
 						twoPcReply = (Message)twoPcRead.readObject();
-						
+
 						if (twoPcReply.getCommand() == Command.COMMIT)
 						{	
 							leaderWriter.writeObject(new WriteObject(Command.PROMISE, leaderMessage.getTransactionId()));
 							leaderWriter.flush();
+							
+							leaderMessage = (WriteObject)leaderReader.readObject();
+							
+							// If PaxosAcceptRPC
+							if (leaderMessage.getCommand() == Command.ACCEPT) {
+								System.out.println("Accept");
+								// Get maxRound
+								receivedMaxRound = leaderMessage.getMaxVal();
+
+								if (receivedMaxRound >= this.minProposal){
+									this.minProposal = receivedMaxRound;
+
+									/*	for (Message m : leaderMessage.getMessages())
+									{
+										jedis.hmset(m.getKey(), m.getValues());
+									}
+									 */
+									// Give a go-ahead to 2PC module to commit the value. Once acknowledgement received, send COMMIT to LEADER
+									twoPcWrite.writeObject(new Message(Command.ACCEPT));
+									twoPcWrite.flush();
+
+									// Check for SUCCESS for 2PC Co-ordinator
+									twoPcReply = (Message)twoPcRead.readObject();
+
+									if (twoPcReply.getCommand() == Command.SUCCESS){
+										leaderWriter.writeObject(new WriteObject(Command.SUCCESS, leaderMessage.getTransactionId()));
+										leaderWriter.flush();
+									}
+									else
+									{
+										leaderWriter.writeObject(new WriteObject(Command.FAILURE, leaderMessage.getTransactionId()));
+										leaderWriter.flush();
+									}
+								}
+							}// LEADER sent ABORT
+							else{
+								twoPcWrite.writeObject(new Message(Command.ABORT));
+								twoPcWrite.flush();
+							}
 						}
 						// Else send NACK
 						else{
@@ -139,56 +177,20 @@ public class Server {
 					// Received proposal is not latest
 					else{
 
-            // Send NACK
+						// Send NACK
 						leaderWriter.writeObject(new WriteObject(Command.NACK, leaderMessage.getTransactionId()));
 						leaderWriter.flush();
 					}
+					twoPc.close();
 				}
 
-				// If PaxosAcceptRPC
-				if (leaderMessage.getCommand() == Command.ACCEPT) {
-          System.out.println("Accept");
-					// Get maxRound
-					int receivedMaxRound = leaderMessage.getMaxVal();
-					
-					if (receivedMaxRound >= this.minProposal){
-						this.minProposal = receivedMaxRound;
-					
-					/*	for (Message m : leaderMessage.getMessages())
-						{
-							jedis.hmset(m.getKey(), m.getValues());
-						}
-					*/
-						// Give a go-ahead to 2PC module to commit the value. Once acknowledgement received, send COMMIT to LEADER
-						twoPcWrite.writeObject(new Message(Command.ACCEPT));
-						
-						// Check for SUCCESS for 2PC Co-ordinator
-						twoPcReply = (Message)twoPcRead.readObject();
-						
-						if (twoPcReply.getCommand() == Command.SUCCESS){
-							leaderWriter.writeObject(new WriteObject(Command.SUCCESS, leaderMessage.getTransactionId()));
-							leaderWriter.flush();
-						}
-						else
-						{
-							leaderWriter.writeObject(new WriteObject(Command.FAILURE, leaderMessage.getTransactionId()));
-							leaderWriter.flush();
-						}
-					}
-				}
-				// If ABORT
-				if (leaderMessage.getCommand()  == Command.ABORT) {
-					// Send ABORT message to 2PC module
-					twoPcWrite.writeObject(new Message(Command.ACCEPT));
-				}
-				
 				if (leaderMessage.getCommand()  == Command.READ) {
 
 					String key = leaderMessage.getMessages().get(0).getKey();
 					Set<String> fields = leaderMessage.getMessages().get(0).getFields();
-				    HashMap<String, String> result = new HashMap<>();
+					HashMap<String, String> result = new HashMap<>();
 					// Get values
-				/*	if (fields == null) {
+					/*	if (fields == null) {
 				      result.putAll(jedis.hgetAll(leaderMessage.getMessages().get(0).getKey()));
 				    } else {
 				      String[] fieldArray =
@@ -203,12 +205,11 @@ public class Server {
 				            valueIterator.next());
 				      }
 				    }
-				 */
+					 */
 					// Give a go-ahead to 2PC module to commit the value. Once acknowledgement received, send COMMIT to LEADER
 					leaderWriter.writeObject(new WriteObject(Command.SUCCESS, leaderMessage.getTransactionId()));
 					leaderWriter.flush();
 				}
-				twoPc.close();
 			}
 		}
 

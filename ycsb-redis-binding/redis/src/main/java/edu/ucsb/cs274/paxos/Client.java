@@ -7,10 +7,11 @@ import java.net.*;
 public class Client {
 
 	// Members
-	private int 						maxRound;
-	private List<ServerInfo>			acceptors;
-	private int							port;
-	private ServerSocket				redisYcsbClientSocket;
+	private int 							maxRound;
+	private List<ServerInfo>				acceptors;
+	private int								port;
+	private ServerSocket					redisYcsbClientSocket;
+	private HashMap<Long, ClientHandler>	transactions;
 
 	// Getters and Setters
 	public int getMaxRound(){ return this.maxRound; }

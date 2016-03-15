@@ -31,8 +31,8 @@ public class TwoPhaseCommit {
 
 
     public void initialize() throws Exception{
-        jedis = new Jedis("localhost", 6003);
-        portNum = 8003;
+        jedis = new Jedis("localhost", 6001);
+        portNum = 8001;
         ServerSocket server = new ServerSocket(portNum);
         while(true){
             Socket client = server.accept();

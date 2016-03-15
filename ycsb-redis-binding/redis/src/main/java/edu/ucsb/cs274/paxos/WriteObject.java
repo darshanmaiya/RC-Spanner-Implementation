@@ -3,6 +3,7 @@ package edu.ucsb.cs274.paxos;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class WriteObject implements Serializable {
 	
@@ -19,7 +20,7 @@ public class WriteObject implements Serializable {
     public void setMaxVal(int maxVal) { this.maxVal = maxVal; }
     public int getMaxVal() { return this.maxVal;}
 	
-    public Command getCommand(){
+    public Command getCommand() {
     	return this.command;
     }
     
@@ -53,4 +54,18 @@ public class WriteObject implements Serializable {
 		this.maxVal = maxVal;
 	}
 
+	@Override
+	public String toString() {
+		StringBuilder returnVal = new StringBuilder("Command: " + command.name());
+		
+		returnVal.append(" | transactionId: " + transactionId);
+		returnVal.append(" | maxVal: " + maxVal);
+		
+		int i=1;
+		for(Message m : messages) {
+			returnVal.append(" | Message " + i++ + ": " + m.toString() + "\n");
+		}
+		
+		return returnVal.toString();
+	}
 }

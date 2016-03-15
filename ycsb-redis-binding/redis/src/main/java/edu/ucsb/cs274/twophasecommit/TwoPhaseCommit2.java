@@ -29,8 +29,8 @@ public class TwoPhaseCommit2 {
 
     public void initialize() throws Exception{
         locks = new ArrayList<String>();
-        jedis = new Jedis("localhost", 6002);
-        portNum = 8002;
+        jedis = new Jedis("localhost", 6001);
+        portNum = 8001;
         ServerSocket server = new ServerSocket(portNum);
         while(true){
             Socket client = server.accept();

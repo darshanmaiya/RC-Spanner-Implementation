@@ -190,8 +190,8 @@ public class Server {
 					Set<String> fields = leaderMessage.getMessages().get(0).getFields();
 					HashMap<String, String> result = new HashMap<>();
 					// Get values
-					/*	if (fields == null) {
-				      result.putAll(jedis.hgetAll(leaderMessage.getMessages().get(0).getKey()));
+					if (fields == null) {
+				      result.putAll(jedis.hgetAll(key));
 				    } else {
 				      String[] fieldArray =
 				          (String[]) leaderMessage.getMessages().get(0).getFields().toArray(new String[fields.size()]);
@@ -205,9 +205,12 @@ public class Server {
 				            valueIterator.next());
 				      }
 				    }
-					 */
+					
+					List<Message> messageList = new ArrayList<Message>();
+					messageList.add(new Message (Command.SUCCESS, key, null, result));
+					 
 					// Give a go-ahead to 2PC module to commit the value. Once acknowledgement received, send COMMIT to LEADER
-					leaderWriter.writeObject(new WriteObject(Command.SUCCESS, leaderMessage.getTransactionId()));
+					leaderWriter.writeObject(new WriteObject(Command.SUCCESS, leaderMessage.getTransactionId(), messageList));
 					leaderWriter.flush();
 				}
 			}

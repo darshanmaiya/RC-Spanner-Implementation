@@ -51,14 +51,53 @@ public class RedisYcsbTester {
 			redisYcsb.inputStream = new ObjectInputStream(redisYcsb.leaderSocket.getInputStream());
 		
             received = (WriteObject) redisYcsb.inputStream.readObject();
-            System.out.println("Object received with details for write:\n");
-            while (true);
+            System.out.println("Object received with details for write:\n" + received);
+            
+			messageList.add(0, new Message(Command.READ, "user45678"));
+			redisYcsb.outputStream.writeObject(
+					new WriteObject(Command.READ,
+									  1, // Have to change this Transaction id, using 1 for Testing
+									  messageList));	
+			redisYcsb.outputStream.flush();
+			
+			received = (WriteObject) redisYcsb.inputStream.readObject();
+            System.out.println("Object received with details for read:\n" + received.getMessages());
+            
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            			
+//			HashMap<String, String> values2 = new HashMap<>();
+//			values.put("f1", new String("value for f1"));
+//			values.put("f2", new String("value for f2"));
+//			values.put("f3", new String("value for f3"));
+//			values.put("f4", new String("value for f4"));
+//			values.put("f5", new String("value for f5"));
+//			values.put("f6", new String("value for f6"));
+//			
+//			
+//			List<Message> messageList2 = new ArrayList<Message>();
+//			Message newMessage2 = new Message(Command.COMMIT, "user45679", null, values2);
+//			messageList2.add(newMessage2);
+//			
 //			redisYcsb.outputStream.writeObject(
-//					new Message(Command.READ, "user45678"));	
+//					new WriteObject(Command.COMMIT,
+//									  1, // Have to change this Transaction id, using 1 for Testing
+//									  messageList2));	
 //			redisYcsb.outputStream.flush();
 //			
-//            message = (Message) redisYcsb.inputStream.readObject();
-//            System.out.println("Object received with details for read:\n" + message);
+//            received = (WriteObject) redisYcsb.inputStream.readObject();
+//            System.out.println("Object received with details for write:\n" + received);
+//            
+//			messageList2.add(0, new Message(Command.READ, "user45679"));
+//			redisYcsb.outputStream.writeObject(
+//					new WriteObject(Command.READ,
+//									  1, // Have to change this Transaction id, using 1 for Testing
+//									  messageList2));	
+//			redisYcsb.outputStream.flush();
+//			
+//			received = (WriteObject) redisYcsb.inputStream.readObject();
+//            System.out.println("Object received with details for read:\n" + received.getMessages());
+            
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

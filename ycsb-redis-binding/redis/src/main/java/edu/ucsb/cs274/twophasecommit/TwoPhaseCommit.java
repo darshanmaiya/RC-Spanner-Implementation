@@ -56,19 +56,23 @@ public class TwoPhaseCommit {
               ObjectOutputStream writer = new ObjectOutputStream(client.getOutputStream());
 
               WriteObject request = (WriteObject)reader.readObject();
+              System.out.println("In twoPC: " + " Txn id: " + request.getTransactionId() + " Command: " + request.getCommand());
 
               writer.writeObject(new Message(Command.ACCEPT));
               writer.flush();
               Message response = (Message)reader.readObject();
               if(response.getCommand() == Command.ACCEPT){
                 for(Message m: request.getMessages()){
-                  jedis.hmset(m.getKey(), m.getValues());
+                	System.out.println("Key to be written is: " + m.getKey());
+                	System.out.println("Message is: " + m);
+                	jedis.hmset(m.getKey(), m.getValues());
                 }
                 writer.writeObject(new Message(Command.SUCCESS));
+                writer.flush();
               }
               else{
                 writer.writeObject(new Message(Command.FAILURE));
-
+                writer.flush();
               }
 
 

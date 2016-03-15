@@ -42,18 +42,18 @@ public class RedisYcsbTester {
 			messageList.add(newMessage);
 						
 			redisYcsb.outputStream = new ObjectOutputStream(redisYcsb.leaderSocket.getOutputStream());
+			redisYcsb.inputStream = new ObjectInputStream(redisYcsb.leaderSocket.getInputStream());
+			
 			redisYcsb.outputStream.writeObject(
 					new WriteObject(Command.COMMIT,
 									  1, // Have to change this Transaction id, using 1 for Testing
 									  messageList));	
 			redisYcsb.outputStream.flush();
-			
-			redisYcsb.inputStream = new ObjectInputStream(redisYcsb.leaderSocket.getInputStream());
 		
             received = (WriteObject) redisYcsb.inputStream.readObject();
             System.out.println("Object received with details for write:\n" + received);
-            
-			messageList.add(0, new Message(Command.READ, "user45678"));
+            	
+            messageList.add(0, new Message(Command.READ, "user45678"));
 			redisYcsb.outputStream.writeObject(
 					new WriteObject(Command.READ,
 									  1, // Have to change this Transaction id, using 1 for Testing
@@ -62,40 +62,44 @@ public class RedisYcsbTester {
 			
 			received = (WriteObject) redisYcsb.inputStream.readObject();
             System.out.println("Object received with details for read:\n" + received.getMessages());
-            
+               
             // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             			
-//			HashMap<String, String> values2 = new HashMap<>();
-//			values.put("f1", new String("value for f1"));
-//			values.put("f2", new String("value for f2"));
-//			values.put("f3", new String("value for f3"));
-//			values.put("f4", new String("value for f4"));
-//			values.put("f5", new String("value for f5"));
-//			values.put("f6", new String("value for f6"));
-//			
-//			
-//			List<Message> messageList2 = new ArrayList<Message>();
-//			Message newMessage2 = new Message(Command.COMMIT, "user45679", null, values2);
-//			messageList2.add(newMessage2);
-//			
-//			redisYcsb.outputStream.writeObject(
-//					new WriteObject(Command.COMMIT,
-//									  1, // Have to change this Transaction id, using 1 for Testing
-//									  messageList2));	
-//			redisYcsb.outputStream.flush();
-//			
-//            received = (WriteObject) redisYcsb.inputStream.readObject();
-//            System.out.println("Object received with details for write:\n" + received);
-//            
-//			messageList2.add(0, new Message(Command.READ, "user45679"));
-//			redisYcsb.outputStream.writeObject(
-//					new WriteObject(Command.READ,
-//									  1, // Have to change this Transaction id, using 1 for Testing
-//									  messageList2));	
-//			redisYcsb.outputStream.flush();
-//			
-//			received = (WriteObject) redisYcsb.inputStream.readObject();
-//            System.out.println("Object received with details for read:\n" + received.getMessages());
+			HashMap<String, String> values2 = new HashMap<>();
+			values2.put("f1", new String("value for f1"));
+			values2.put("f2", new String("value for f2"));
+			values2.put("f3", new String("value for f3"));
+			values2.put("f4", new String("value for f4"));
+			values2.put("f5", new String("value for f5"));
+			values2.put("f6", new String("value for f6"));
+			
+			
+			List<Message> messageList2 = new ArrayList<Message>();
+			Message newMessage2 = new Message(Command.COMMIT, "user45679", null, values2);
+			messageList2.add(newMessage2);
+		//	System.out.println(newMessage2);
+			
+			redisYcsb.outputStream.writeObject(
+					new WriteObject(Command.COMMIT,
+									  2, // Have to change this Transaction id, using 1 for Testing
+									  messageList2));	
+			redisYcsb.outputStream.flush();
+			
+            received = (WriteObject) redisYcsb.inputStream.readObject();
+            System.out.println("Object received with details for write:\n" + received);
+            
+			messageList2.add(0, new Message(Command.READ, "user45679"));
+			redisYcsb.outputStream.writeObject(
+					new WriteObject(Command.READ,
+									  1, // Have to change this Transaction id, using 1 for Testing
+									  messageList2));	
+			redisYcsb.outputStream.flush();
+			
+			received = (WriteObject) redisYcsb.inputStream.readObject();
+            System.out.println("Object received with details for read:\n" + received.getMessages());
+
+            while (true)
+                ;
             
             // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		} catch (Exception e) {

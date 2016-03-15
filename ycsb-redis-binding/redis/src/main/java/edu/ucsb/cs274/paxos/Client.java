@@ -11,7 +11,7 @@ public class Client {
 	private List<ServerInfo>				acceptors;
 	private int								port;
 	private ServerSocket					redisYcsbClientSocket;
-	private HashMap<Long, ClientHandler>	transactions;
+//	private HashMap<Long, ClientHandler>	transactions;
 
 	// Getters and Setters
 	public int getMaxRound(){ return this.maxRound; }
@@ -93,6 +93,7 @@ public class Client {
 				// When there is a message from YCSB server, initiate Paxos.
 				try {
 					ycsbMessage = (WriteObject)ycsbReader.readObject();
+					System.out.println("YCSB command: " + " Transaction id: " + ycsbMessage.getTransactionId() + " Command: " + ycsbMessage.getCommand());
 				} catch (EOFException eof) {
 					continue;
 				}
@@ -104,6 +105,7 @@ public class Client {
 				if (command == Command.COMMIT) {
 					numPromises = 0;
 
+					System.out.println("Received message: "  + ycsbMessage.getMessages());
 					// Broadcast PrepareRPC to all Acceptors
 					prepareRPC = PaxosPrepareRPC(ycsbMessage);
 

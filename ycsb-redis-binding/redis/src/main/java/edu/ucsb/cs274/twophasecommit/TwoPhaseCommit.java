@@ -85,12 +85,13 @@ public class TwoPhaseCommit implements Runnable {
               Message response = (Message)reader.readObject();
               if(response.getCommand() == Command.ACCEPT){
                 for(Message m: request.getMessages()){
-                  synchronized (locks){
+                  synchronized (locks) {
                     locks.put(m.getKey(), txn);
+
+                    System.out.println("Key to be written is: " + m.getKey());
+                    System.out.println("Message is: " + m);
+                    jedis.hmset(m.getKey(), m.getValues());
                   }
-                	System.out.println("Key to be written is: " + m.getKey());
-                	System.out.println("Message is: " + m);
-                	jedis.hmset(m.getKey(), m.getValues());
                 }
                 for(Message m: request.getMessages()){
                   synchronized (locks){

@@ -4,13 +4,15 @@ import java.util.*;
 import java.io.*;
 import java.net.*;
 
-public class Client {
+public class Client implements Runnable{
 
 	// Members
 	private int 							maxRound;
 	private List<ServerInfo>				acceptors;
 	private int								port;
 	private ServerSocket					redisYcsbClientSocket;
+	private	Socket 							redisClientSocket;
+
 //	private HashMap<Long, ClientHandler>	transactions;
 
 	// Getters and Setters
@@ -18,53 +20,57 @@ public class Client {
 	public List<ServerInfo> getAcceptors(){ return this.acceptors; }
 	public int getPort() { return this.port; };
 
-	// Always use this constructor to initialize a new PaxosServer instance
 	public Client() {
 		this.maxRound = 0;
 		this.acceptors = new ArrayList<ServerInfo>();
 	}
 
-	// Initialize all Acceptors
-	public void initialize(){
+	Client(Socket redisClientSocket){
+		this.maxRound = 0;
+		this.acceptors = new ArrayList<ServerInfo>();
+	    try {
+	      this.redisClientSocket = redisClientSocket;
+	    }
+	    catch (Exception e){
+	      e.printStackTrace();
+	    }
+	  }
 
-		// Open config file and read the participant IP/Port
-		try{			
-			Properties properties = new Properties();
-			ClassLoader classloader = Thread.currentThread().getContextClassLoader();
-			InputStream is = classloader.getResourceAsStream("config.properties");
-			try {
-				properties.load(is);
-			} catch (IOException e) {
-				
-				e.printStackTrace();
-				return;
-			}
-
-			int totalParticipants = Integer.valueOf(properties.getProperty("totalParticipants"));
-			for(int i=0; i<totalParticipants; i++) {
-				String propIpAddress = properties.getProperty("ipAddress" + i);
-				int propPort = Integer.valueOf(properties.getProperty("port" + i));
-				if(i == 0) {
-					this.port = propPort;
-				} else {
-					ServerInfo server = new ServerInfo(i, propIpAddress, propPort);
-					
-					this.acceptors.add(server);
-				}
-			}
-		}
-		catch(Exception e){
-			e.printStackTrace();
-		}
-	}
-	
 	// Setup/Manage ports, start message flow
-	public void start() {
+	public void run() {
 		
+		// First, initialize
 		try {
-			// Open socket for Redis client to connect
-			this.redisYcsbClientSocket = new ServerSocket(this.port);
-            Socket redisClientSocket = this.redisYcsbClientSocket.accept();
+	        
+         // Open config file and read the participant IP/Port
+    		try{			
+    			Properties properties = new Properties();
+    			ClassLoader classloader = Thread.currentThread().getContextClassLoader();
+    			InputStream is = classloader.getResourceAsStream("config.properties");
+    			try {
+    				properties.load(is);
+    			} catch (IOException e) {
+    				
+    				e.printStackTrace();
+    				return;
+    			}
+
+    			int totalParticipants = Integer.valueOf(properties.getProperty("totalParticipants"));
+    			for(int i=0; i<totalParticipants; i++) {
+    				String propIpAddress = properties.getProperty("ipAddress" + i);
+    				int propPort = Integer.valueOf(properties.getProperty("port" + i));
+    				if(i == 0) {
+    					this.port = propPort;
+    				} else {
+    					ServerInfo server = new ServerInfo(i, propIpAddress, propPort);
+    					
+    					this.acceptors.add(server);
+    				}
+    			}
+    		}
+    		catch(Exception e){
+    			e.printStackTrace();
+    		}
 
 			// Connect to all acceptors
 			for (ServerInfo acceptor : this.acceptors) {
@@ -257,7 +263,7 @@ public class Client {
 		return abortRPC;
 	}
 
-	public static void main(String args[]) {
+	/*public static void main(String args[]) {
 		Runnable myRunnable1 = new Runnable(){
 
 		     public void run(){
@@ -265,7 +271,7 @@ public class Client {
 
 				Server p1 = new Server(1);
 				p1.initialize();
-				p1.start();
+			//	p1.start();
 		     }
 		};
 		
@@ -308,7 +314,7 @@ public class Client {
 		System.out.println("Starting paxos client");
 		
 		Client c = new Client();
-		c.initialize();
-		c.start();
-	}
+	//	c.initialize();
+		//c.start();
+	}*/
 }

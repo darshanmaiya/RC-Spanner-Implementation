@@ -6,18 +6,18 @@ import redis.clients.jedis.Jedis;
 import java.io.*;
 import java.net.*;
 
-public class Server {
+public class Server implements Runnable{
 
 	// Members
 	private int							id;
 	private List<ServerInfo>			acceptors;
 	private int							port;
-	private ServerSocket				serverSocket;
 	private int 						minProposal;
-	private String 						redisServer;
-	private int							redisPort;
-	private Jedis 						jedis;
+	private Jedis 						jedis1;
+	private Jedis 						jedis2;
+	private Jedis 						jedis3;
 	private int							twoPcPort;
+	private Socket						leaderSocket;
 
 	// Getters and Setters
 	public int getId(){ return this.id; }
@@ -25,17 +25,27 @@ public class Server {
 	public int getPort() { return this.port; };
 	public int getMinProposal() { return this.minProposal; }
 
-	// Always use this constructor to initialize a new PaxosServer instance
 	public Server(int id){
 		this.id = id;
 		this.minProposal = 0;
 		this.acceptors = new ArrayList<ServerInfo>();
 	}
 
+	Server(Socket leaderSocket, int id){
+		this.id = id;
+		this.minProposal = 0;
+		this.acceptors = new ArrayList<ServerInfo>();
+		try {
+			this.leaderSocket = leaderSocket;
+		}
+		catch (Exception e){
+			e.printStackTrace();
+		}
+	}
+
 	// Initialize all participants
 	public void initialize(){
-
-		// Open config file and read the participant IP/Port
+		// Open config file, read 2PC port details and connect to corresponding redis server
 		try{			
 			Properties properties = new Properties();
 			ClassLoader classloader = Thread.currentThread().getContextClassLoader();
@@ -48,43 +58,37 @@ public class Server {
 				return;
 			}
 
-			int totalParticipants = Integer.valueOf(properties.getProperty("totalParticipants"));
-			for(int i=0; i<totalParticipants; i++) {
-				String propIpAddress = properties.getProperty("ipAddress" + i);
-				int propPort = Integer.valueOf(properties.getProperty("port" + i));
-				if(i == this.id) {
-					this.port = propPort;
-					this.redisServer = properties.getProperty("redisServer" + i);
-					this.redisPort = Integer.valueOf(properties.getProperty("redisPort" + i));
-				} else {
-					ServerInfo server = new ServerInfo(i, propIpAddress, propPort);
-
-					this.acceptors.add(server);
-				}
-			}
-
-			// Connect to redis server
-			jedis = new Jedis(this.redisServer, this.redisPort);
-			jedis.connect();
-
+			// Connect to all Redis Servers
+			jedis1 = new Jedis(properties.getProperty("redisServer1"), Integer.valueOf(properties.getProperty("redisPort1")));
+			jedis2 = new Jedis(properties.getProperty("redisServer2"), Integer.valueOf(properties.getProperty("redisPort2")));
+			jedis3 = new Jedis(properties.getProperty("redisServer3"), Integer.valueOf(properties.getProperty("redisPort3")));
+			
+			jedis1.connect();
+			jedis2.connect();
+			jedis3.connect();
+			
 			// Get 2PC-Port
 			this.twoPcPort = Integer.valueOf(properties.getProperty("twoPcPort"));
 		} 
 		catch(Exception e){
 			e.printStackTrace();
 		}
+
 	}
 
 	public void finalize () {
-		jedis.disconnect();
+		jedis1.disconnect();
+		jedis2.disconnect();
+		jedis3.disconnect();
 	}
 
 	// Setup/Manage ports, start message flow
-	public void start () {
+	public void run () {
+
+		this.initialize();
+		
 		try{
 			WriteObject leaderMessage;
-			this.serverSocket = new ServerSocket(this.port);
-			Socket leaderSocket = this.serverSocket.accept();
 
 			// Once connected to LEADER, listen for Paxos message from the LEADER
 			ObjectOutputStream leaderWriter = new ObjectOutputStream(leaderSocket.getOutputStream());
@@ -100,11 +104,11 @@ public class Server {
 				// If PaxosPrepareRPC
 				if (leaderMessage.getCommand() == Command.PREPARE) {
 					System.out.println("Prepare");
-					
+
 					Socket twoPc = new Socket("127.0.0.1", this.twoPcPort);
 					ObjectOutputStream twoPcWrite = new ObjectOutputStream(twoPc.getOutputStream());
 					ObjectInputStream twoPcRead = new ObjectInputStream(twoPc.getInputStream());
-					
+
 					// Get maxRound
 					int receivedMaxRound = leaderMessage.getMaxVal();
 
@@ -127,9 +131,9 @@ public class Server {
 						{	
 							leaderWriter.writeObject(new WriteObject(Command.PROMISE, leaderMessage.getTransactionId()));
 							leaderWriter.flush();
-							
+
 							leaderMessage = (WriteObject)leaderReader.readObject();
-							
+
 							// If PaxosAcceptRPC
 							if (leaderMessage.getCommand() == Command.ACCEPT) {
 								System.out.println("Accept");
@@ -191,25 +195,25 @@ public class Server {
 					HashMap<String, String> result = new HashMap<>();
 					// Get values
 					if (fields == null) {
-				      result.putAll(jedis.hgetAll(key));
-				    } else {
-				      String[] fieldArray =
-				          (String[]) leaderMessage.getMessages().get(0).getFields().toArray(new String[fields.size()]);
-				      List<String> values = jedis.hmget(key, fieldArray);
+						result.putAll(jedis1.hgetAll(key));
+					} else {
+						String[] fieldArray =
+								(String[]) leaderMessage.getMessages().get(0).getFields().toArray(new String[fields.size()]);
+						List<String> values = jedis1.hmget(key, fieldArray);
 
-				      Iterator<String> fieldIterator = fields.iterator();
-				      Iterator<String> valueIterator = values.iterator();
+						Iterator<String> fieldIterator = fields.iterator();
+						Iterator<String> valueIterator = values.iterator();
 
-				      while (fieldIterator.hasNext() && valueIterator.hasNext()) {
-				        result.put(fieldIterator.next(),
-				            valueIterator.next());
-				      }
-				    }
-					
+						while (fieldIterator.hasNext() && valueIterator.hasNext()) {
+							result.put(fieldIterator.next(),
+									valueIterator.next());
+						}
+					}
+
 					List<Message> messageList = new ArrayList<Message>();
 					messageList.add(new Message (Command.SUCCESS, key, null, result));
-					 
-					// Give a go-ahead to 2PC module to commit the value. Once acknowledgement received, send COMMIT to LEADER
+
+					// Send the READ value to the  leader
 					leaderWriter.writeObject(new WriteObject(Command.SUCCESS, leaderMessage.getTransactionId(), messageList));
 					leaderWriter.flush();
 				}

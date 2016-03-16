@@ -12,6 +12,9 @@ public class RedisYcsbTester {
 	private Socket leaderSocket;
 	private ObjectInputStream inputStream = null;
 	private ObjectOutputStream outputStream = null;
+	private Socket leaderSocket2;
+	private ObjectInputStream inputStream2 = null;
+	private ObjectOutputStream outputStream2 = null;
 	
 	
 	public static void main(String args[]) throws InterruptedException{
@@ -38,7 +41,7 @@ public class RedisYcsbTester {
 			
 			List<Message> messageList = new ArrayList<Message>();
 			
-			Message newMessage = new Message(Command.COMMIT, "user45678", null, values);
+			Message newMessage = new Message(Command.COMMIT, "user1000", null, values);
 			messageList.add(newMessage);
 						
 			redisYcsb.outputStream = new ObjectOutputStream(redisYcsb.leaderSocket.getOutputStream());
@@ -53,7 +56,7 @@ public class RedisYcsbTester {
             received = (WriteObject) redisYcsb.inputStream.readObject();
             System.out.println("Object received with details for write:\n" + received);
             	
-            messageList.add(0, new Message(Command.READ, "user45678"));
+            messageList.add(0, new Message(Command.READ, "user1000"));
 			redisYcsb.outputStream.writeObject(
 					new WriteObject(Command.READ,
 									  1, // Have to change this Transaction id, using 1 for Testing
@@ -65,6 +68,15 @@ public class RedisYcsbTester {
                
             // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             			
+            try{
+    			redisYcsb.leaderSocket2 = new Socket("127.0.0.1", 5000);
+    		} catch (IOException e) {
+    			e.printStackTrace();
+    		}
+            
+            redisYcsb.outputStream2 = new ObjectOutputStream(redisYcsb.leaderSocket2.getOutputStream());
+			redisYcsb.inputStream2 = new ObjectInputStream(redisYcsb.leaderSocket2.getInputStream());
+            
 			HashMap<String, String> values2 = new HashMap<>();
 			values2.put("f1", new String("value for f1"));
 			values2.put("f2", new String("value for f2"));
@@ -75,27 +87,27 @@ public class RedisYcsbTester {
 			
 			
 			List<Message> messageList2 = new ArrayList<Message>();
-			Message newMessage2 = new Message(Command.COMMIT, "user45679", null, values2);
+			Message newMessage2 = new Message(Command.COMMIT, "user2000", null, values2);
 			messageList2.add(newMessage2);
 		//	System.out.println(newMessage2);
 			
-			redisYcsb.outputStream.writeObject(
+			redisYcsb.outputStream2.writeObject(
 					new WriteObject(Command.COMMIT,
 									  2, // Have to change this Transaction id, using 1 for Testing
 									  messageList2));	
-			redisYcsb.outputStream.flush();
+			redisYcsb.outputStream2.flush();
 			
-            received = (WriteObject) redisYcsb.inputStream.readObject();
+            received = (WriteObject) redisYcsb.inputStream2.readObject();
             System.out.println("Object received with details for write:\n" + received);
             
-			messageList2.add(0, new Message(Command.READ, "user45679"));
-			redisYcsb.outputStream.writeObject(
+			messageList2.add(0, new Message(Command.READ, "user2000"));
+			redisYcsb.outputStream2.writeObject(
 					new WriteObject(Command.READ,
 									  1, // Have to change this Transaction id, using 1 for Testing
 									  messageList2));	
-			redisYcsb.outputStream.flush();
+			redisYcsb.outputStream2.flush();
 			
-			received = (WriteObject) redisYcsb.inputStream.readObject();
+			received = (WriteObject) redisYcsb.inputStream2.readObject();
             System.out.println("Object received with details for read:\n" + received.getMessages());
 
             while (true)

@@ -194,7 +194,7 @@ public class Server implements Runnable{
 					Set<String> fields = leaderMessage.getMessages().get(0).getFields();
 					HashMap<String, String> result = new HashMap<>();
 					
-					String keyId = key.substring(4);
+					char keyId = key.charAt(key.length()-1);
 					int shardNo = (Integer.valueOf(keyId))%3 + 1;
 					
 					// Get values
@@ -236,7 +236,7 @@ public class Server implements Runnable{
 					List<Message> messageList = new ArrayList<Message>();
 					messageList.add(new Message (Command.SUCCESS, key, null, result));
 
-					// Send the READ value to the  leader
+					// Send the READ value to the leader
 					leaderWriter.writeObject(new WriteObject(Command.SUCCESS, leaderMessage.getTransactionId(), messageList));
 					leaderWriter.flush();
 				}

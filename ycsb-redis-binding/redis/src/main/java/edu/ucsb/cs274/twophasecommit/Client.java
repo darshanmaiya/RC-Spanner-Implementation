@@ -13,9 +13,10 @@ public class Client {
 
         try {
            ServerSocket listener = new ServerSocket(8005);
-
+           
             while(true) {
                 Socket request = listener.accept();
+                System.out.println("after accept");
                 (new Thread(new ClientRequestHandler(request))).start();
 
             }

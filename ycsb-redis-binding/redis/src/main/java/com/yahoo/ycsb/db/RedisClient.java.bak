@@ -30,59 +30,39 @@ import com.yahoo.ycsb.DBException;
 import com.yahoo.ycsb.Status;
 import com.yahoo.ycsb.StringByteIterator;
 
-import edu.ucsb.cs274.paxos.*;
+import edu.ucsb.cs274.common.RedisYcsbTester;
+import edu.ucsb.cs274.paxos.Command;
+import edu.ucsb.cs274.paxos.Message;
+import edu.ucsb.cs274.paxos.WriteObject;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Protocol;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
+import java.util.Vector;
 
 /**
  * YCSB binding for <a href="http://redis.io/">Redis</a>.
  *
  * See {@code redis/README.md} for details.
  */
-public class RedisClient extends DB {
-
-	private Jedis jedis;
-
-	public static final String HOST_PROPERTY = "redis.host";
-	public static final String PORT_PROPERTY = "redis.port";
-	public static final String PASSWORD_PROPERTY = "redis.password";
+public class RedisClientOld extends DB {
 
 	public static final String INDEX_KEY = "_indices";
 
-	private static int transactions = 1;
-
-	private int transactionId;
-	
 	private Socket leaderSocket;
 	private ObjectInputStream inputStream = null;
 	private ObjectOutputStream outputStream = null;
 
 	public void init() throws DBException {
-		transactionId = transactions++;
-		System.out.println("in init redis with transaciton id: " + transactionId);
-		Properties props = getProperties();
-		int port;
-
-		String portString = props.getProperty(PORT_PROPERTY);
-		if (portString != null) {
-			port = Integer.parseInt(portString);
-		} else {
-			port = Protocol.DEFAULT_PORT;
-		}
-		String host = props.getProperty(HOST_PROPERTY);
-
-		jedis = new Jedis(host, port);
-		jedis.connect();
-
-		String password = props.getProperty(PASSWORD_PROPERTY);
-		if (password != null) {
-			jedis.auth(password);
-		}
-		
 		try{
 			leaderSocket = new Socket("127.0.0.1", 5000);
 			outputStream = new ObjectOutputStream(leaderSocket.getOutputStream());
@@ -93,29 +73,7 @@ public class RedisClient extends DB {
 	}
 
 	public void cleanup() throws DBException {
-		System.out.println("in cleanup");
-		jedis.disconnect();
-	}
-
-	/**
-	 * Start a database transaction. 
-	 */
-	public void start() throws DBException {
-		System.out.println("start transaction with id: " + transactionId);
-	}
-
-	/**
-	 * Commit the current database transaction. 
-	 */
-	public void commit() throws DBException {
-		System.out.println("commit transaction with id: " + transactionId);
-	}
-
-	/**
-	 * Abort the current database transaction. 
-	 */
-	public void abort() throws DBException {
-		System.out.println("abort transaction with id: " + transactionId);
+		
 	}
 
 	/*
@@ -124,7 +82,7 @@ public class RedisClient extends DB {
 	 * scattered along the whole space of doubles. In a real world scenario one
 	 * would probably use the ASCII values of the keys.
 	 */
-	public double hash(String key) {
+	private double hash(String key) {
 		return key.hashCode();
 	}
 
@@ -141,7 +99,7 @@ public class RedisClient extends DB {
 		try {
 			outputStream.writeObject(
 					new WriteObject(Command.READ,
-									  transactionId,
+									  1, // Have to change this Transaction id, using 1 for Testing
 									  messageList));
 			outputStream.flush();
 			writeObject = (WriteObject) inputStream.readObject();
@@ -158,45 +116,42 @@ public class RedisClient extends DB {
 	@Override
 	public Status insert(String table, String key,
 			HashMap<String, ByteIterator> values) {
-		System.out.println("in insert with key: " + key);
-		WriteObject writeObject;
-		List<Message> messageList = new ArrayList<Message>();
-		
-		Message newMessage = new Message(Command.COMMIT, key, null, StringByteIterator.getStringMap(values));
-		messageList.add(newMessage);
-		try {
-			outputStream.writeObject(
-					new WriteObject(Command.COMMIT,
-									  transactionId,
-									  messageList));
-			outputStream.flush();
-			writeObject = (WriteObject) inputStream.readObject();
-			if(writeObject.getCommand() == Command.SUCCESS)
-				return Status.OK;
-			else
-				return Status.ERROR;
-		} catch (Exception e) {
-			e.printStackTrace();
-			// TODO: For testing
+		if (jedis.hmset(key, StringByteIterator.getStringMap(values))
+				.equals("OK")) {
+			jedis.zadd(INDEX_KEY, hash(key), key);
 			return Status.OK;
 		}
+		return Status.ERROR;
 	}
 
 	@Override
 	public Status delete(String table, String key) {
+		/*return jedis.del(key) == 0 && jedis.zrem(INDEX_KEY, key) == 0 ? Status.ERROR
+				: Status.OK;*/
 		return Status.OK;
 	}
 
 	@Override
 	public Status update(String table, String key,
 			HashMap<String, ByteIterator> values) {
-		System.out.println("in update with key: " + key);
-		return insert(table, key, values);
+		/*return jedis.hmset(key, StringByteIterator.getStringMap(values))
+				.equals("OK") ? Status.OK : Status.ERROR;*/
+		return Status.OK;
 	}
 
 	@Override
 	public Status scan(String table, String startkey, int recordcount,
 			Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
+		/*Set<String> keys = jedis.zrangeByScore(INDEX_KEY, hash(startkey),
+				Double.POSITIVE_INFINITY, 0, recordcount);
+
+		HashMap<String, ByteIterator> values;
+		for (String key : keys) {
+			values = new HashMap<String, ByteIterator>();
+			read(table, key, fields, values);
+			result.add(values);
+		}*/
+
 		return Status.OK;
 	}
 

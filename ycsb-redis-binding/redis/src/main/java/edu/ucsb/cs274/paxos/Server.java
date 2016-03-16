@@ -193,14 +193,37 @@ public class Server implements Runnable{
 					String key = leaderMessage.getMessages().get(0).getKey();
 					Set<String> fields = leaderMessage.getMessages().get(0).getFields();
 					HashMap<String, String> result = new HashMap<>();
+					
+					String keyId = key.substring(4);
+					int shardNo = (Integer.valueOf(keyId))%3 + 1;
+					
 					// Get values
 					if (fields == null) {
-						result.putAll(jedis1.hgetAll(key));
+						if (shardNo == 1){
+							result.putAll(jedis1.hgetAll(key));
+						}
+						if (shardNo == 2){
+							result.putAll(jedis2.hgetAll(key));
+						}
+						if (shardNo == 3){
+							result.putAll(jedis3.hgetAll(key));
+						}
 					} else {
+
 						String[] fieldArray =
 								(String[]) leaderMessage.getMessages().get(0).getFields().toArray(new String[fields.size()]);
-						List<String> values = jedis1.hmget(key, fieldArray);
-
+						
+						List<String> values;
+						
+						if (shardNo == 1){
+							values = jedis1.hmget(key, fieldArray);
+						}else if (shardNo == 2){
+							values = jedis2.hmget(key, fieldArray);
+						}
+						else{
+							values = jedis3.hmget(key, fieldArray);
+						}
+	
 						Iterator<String> fieldIterator = fields.iterator();
 						Iterator<String> valueIterator = values.iterator();
 

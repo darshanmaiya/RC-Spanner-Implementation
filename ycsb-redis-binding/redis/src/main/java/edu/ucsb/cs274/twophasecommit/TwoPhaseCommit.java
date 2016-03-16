@@ -7,37 +7,45 @@ import redis.clients.jedis.Jedis;
 
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.Scanner;
+import java.util.HashMap;
 
-public class TwoPhaseCommit {
+public class TwoPhaseCommit implements Runnable {
 
     int portNum;
     private Jedis jedis;
-
+    int siteNum;
+    HashMap<String, Long> locks;
 
     public static void main(String[] args) {
-        TwoPhaseCommit tpc = new TwoPhaseCommit();
-        try {
-            tpc.initialize();
-        }
-        catch(Exception e){
-            e.printStackTrace();
-        }
+      //start the 3 sites
+      for(int i=0; i<3; i++){
+        (new Thread(new TwoPhaseCommit(i))).start();
+      }
+
+    }
+
+    TwoPhaseCommit(int siteNum){
+      this.siteNum = siteNum;
+      locks = new HashMap<>();
     }
 
 
-    public void initialize() throws Exception{
-        jedis = new Jedis("localhost", 6001);
-        portNum = 8001;
-        ServerSocket server = new ServerSocket(portNum);
-        while(true){
+    public void run() {
+
+        try {
+          jedis = new Jedis("localhost", 6001 + siteNum);
+          portNum = 8001 + siteNum;
+          ServerSocket server = new ServerSocket(portNum);
+          while (true) {
             Socket client = server.accept();
             System.out.println("new client accepted");
             (new Thread(new RequestHandler(client))).start();
+          }
+        }
+        catch (Exception e){
+          e.printStackTrace();
         }
     }
 
@@ -57,15 +65,38 @@ public class TwoPhaseCommit {
 
               WriteObject request = (WriteObject)reader.readObject();
               System.out.println("In twoPC: " + " Txn id: " + request.getTransactionId() + " Command: " + request.getCommand());
+              long txn = request.getTransactionId();
+
+              for(Message m: request.getMessages()) {
+                String key = m.getKey();
+                synchronized (locks) {
+                  while(locks.containsKey(key)){
+                    if(locks.get(key) >= txn){
+                      break;
+                    }
+                    locks.wait();
+                  }
+                  locks.put(key, txn);
+                }
+              }
 
               writer.writeObject(new Message(Command.ACCEPT));
               writer.flush();
               Message response = (Message)reader.readObject();
               if(response.getCommand() == Command.ACCEPT){
                 for(Message m: request.getMessages()){
+                  synchronized (locks){
+                    locks.put(m.getKey(), txn);
+                  }
                 	System.out.println("Key to be written is: " + m.getKey());
                 	System.out.println("Message is: " + m);
                 	jedis.hmset(m.getKey(), m.getValues());
+                }
+                for(Message m: request.getMessages()){
+                  synchronized (locks){
+                    locks.remove(m.getKey());
+                    locks.notifyAll();
+                  }
                 }
                 writer.writeObject(new Message(Command.SUCCESS));
                 writer.flush();

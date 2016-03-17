@@ -3,7 +3,7 @@ package edu.ucsb.cs274.spanner;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class ServerInitiator {
+public class Server1Initiator {
 
 	public static void main(String[] args){
 

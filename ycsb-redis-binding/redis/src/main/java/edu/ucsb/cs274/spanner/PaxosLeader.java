@@ -34,7 +34,9 @@ public class PaxosLeader{
 			ServerSocket server = new ServerSocket(8000);
 			while (true) {
 				Socket client = server.accept();
-				(new Thread(paxosLeader.new RequestHandler(client))).start();
+				(new Thread(paxosLeader.new RequestHandler(client, 1))).start();
+				(new Thread(paxosLeader.new RequestHandler(client, 2))).start();
+				(new Thread(paxosLeader.new RequestHandler(client, 3))).start();
 			}
 		}
 		catch (Exception e){
@@ -43,30 +45,26 @@ public class PaxosLeader{
 	}
 
 	public class RequestHandler implements Runnable{
-
+		int id;
 		Socket client;
+		int maxRound;
+		Socket acceptorOne;
+		Socket acceptorTwo;
 
-		public RequestHandler(Socket client){
+		public RequestHandler(Socket client, int id){
+			this.id = id;
+			this.maxRound = 0;
 			this.client = client;
 		}
 
 		public void run(){
 			try {
+
+				// Initialize
+
 				// Create input/output streams to TwoPC coordinator
 				ObjectInputStream twoPcReader = new ObjectInputStream(client.getInputStream());
 				ObjectOutputStream twoPcWriter = new ObjectOutputStream(client.getOutputStream());
-
-				// Read message from 2pc coordinator
-				WriteObject request = (WriteObject)twoPcReader.readObject();
-				long txn = request.getTransactionId();
-
-				// First, get the locks
-
-
-				//                  Implement here
-
-
-				//////////////////////////////////////////////////////////////////////////////////
 
 				// Read config.properties file. Connect to Paxos Acceptors(Servers) [2 in our case]
 				Properties properties = new Properties();
@@ -79,67 +77,95 @@ public class PaxosLeader{
 					return;
 				}
 
-				// Connect and get sockets ready for communication
-				Socket AcceptorOne = new Socket("127.0.0.1", 5001);
-				Socket AcceptorTwo = new Socket(properties.getProperty("dataCenter2Ip"), 5002);
-				Socket AcceptorThree = new Socket(properties.getProperty("dataCenter3Ip"), 5003);
-
-				ObjectOutputStream acceptorOneWriter = new ObjectOutputStream(AcceptorOne.getOutputStream());
-				ObjectOutputStream acceptorTwoWriter = new ObjectOutputStream(AcceptorTwo.getOutputStream());
-				ObjectOutputStream acceptorThreeWriter = new ObjectOutputStream(AcceptorThree.getOutputStream());
-
-				ObjectInputStream acceptorOneReader = new ObjectInputStream(AcceptorOne.getInputStream());
-				ObjectInputStream acceptorTwoReader = new ObjectInputStream(AcceptorTwo.getInputStream());
-				ObjectInputStream acceptorThreeReader = new ObjectInputStream(AcceptorThree.getInputStream());
-
-
-				///////////////////////////////////////////////////////////////////////////////////
-
-				for(Message m: request.getMessages()) {
-					String key = m.getKey();
-					synchronized (locks) {
-						while(locks.containsKey(key)){
-							if(locks.get(key) >= txn){
-								break;
-							}
-							locks.wait();
-						}
-						locks.put(key, txn);
-					}
+				// Connect to corresponding acceptors
+				if (1 == this.id){
+					this.acceptorOne = new Socket(properties.getProperty("dataCenterIp2"), 5002);
+					this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp3"), 5003);
+				}
+				
+				if (2 == this.id){
+					this.acceptorOne = new Socket(properties.getProperty("dataCenterIp1"), 5001);
+					this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp3"), 5003);
+				}
+				
+				if (3 == this.id){
+					this.acceptorOne = new Socket(properties.getProperty("dataCenterIp1"), 5001);
+					this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp2"), 5002);
 				}
 
-				twoPcWriter.writeObject(new Message(Command.ACCEPT));
-				twoPcWriter.flush();
-				Message response = (Message)twoPcReader.readObject();
-				if(response.getCommand() == Command.ACCEPT){
-					for(Message m: request.getMessages()){
-						synchronized (locks) {
-							locks.put(m.getKey(), txn);
+				ObjectOutputStream acceptorOneWriter = new ObjectOutputStream(acceptorOne.getOutputStream());
+				ObjectOutputStream acceptorTwoWriter = new ObjectOutputStream(acceptorTwo.getOutputStream());
 
-							System.out.println("Key to be written is: " + m.getKey());
-							System.out.println("Message is: " + m);
-							jedis.hmset(m.getKey(), m.getValues());
-						}
+				ObjectInputStream acceptorOneReader = new ObjectInputStream(acceptorOne.getInputStream());
+				ObjectInputStream acceptorTwoReader = new ObjectInputStream(acceptorTwo.getInputStream());
+
+				WriteObject prepareRPC;
+				WriteObject acceptRPC;
+				WriteObject abortRPC;
+				WriteObject acceptorOneMessage;
+				WriteObject acceptorTwoMessage;
+				WriteObject twoPcMessage;
+				
+				while (true){
+
+					// Read message from 2pc coordinator
+					twoPcMessage = (WriteObject)twoPcReader.readObject();
+					int majority = 2;
+					int numPromises = 0;
+					long txn = twoPcMessage.getTransactionId();
+
+					///////////////////////// First, get the locks ///////////////////////////////////
+
+
+					//                  Implement here
+
+
+					//////////////////////////////////////////////////////////////////////////////////
+
+					// Generate PaxosPrepare RPC
+					prepareRPC = PaxosPrepareRPC(twoPcMessage);
+					
+					// Send prepare RPC to acceptor 1
+					acceptorOneWriter.writeObject(prepareRPC);
+					acceptorOneWriter.flush();
+					
+					acceptorOneMessage = (WriteObject)acceptorOneReader.readObject();
+					if (acceptorOneMessage.getCommand() == Command.PROMISE)	
+						numPromises++;
+					
+					// Send prepare RPC to acceptor 2
+					acceptorTwoWriter.writeObject(prepareRPC);
+					acceptorTwoWriter.flush();
+					
+					acceptorTwoMessage = (WriteObject)acceptorTwoReader.readObject();
+					if (acceptorOneMessage.getCommand() == Command.PROMISE)	
+						numPromises++;
+					
+					if (numPromises >= majority){
+						// Send SUCCESS to 2PC
+						twoPcWriter.writeObject(new WriteObject(Command.SUCCESS));
+						twoPcWriter.flush();
 					}
-					for(Message m: request.getMessages()){
-						synchronized (locks){
-							locks.remove(m.getKey());
-							locks.notifyAll();
-						}
+					else{
+						twoPcWriter.writeObject(new WriteObject(Command.FAILURE));
+						twoPcWriter.flush();
 					}
-					twoPcWriter.writeObject(new Message(Command.SUCCESS));
-					twoPcWriter.flush();
+					
 				}
-				else{
-					twoPcWriter.writeObject(new Message(Command.FAILURE));
-					twoPcWriter.flush();
-				}
-
-
 			} catch (Exception e){
 				e.printStackTrace();
 			}
+		}
 
+		// Generate Paxos PrepareRPC
+		private WriteObject PaxosPrepareRPC(WriteObject ycsbMessage) {
+			// Prepare message will be of the form, "PREPARE=123 COMMIT=X:2 Y:3 Z:4"
+			// Proposal no = "(maxRound + 1)"
+			this.maxRound++;
+
+			WriteObject proposeObject = new WriteObject(Command.PREPARE, ycsbMessage.getTransactionId(), ycsbMessage.getMessages(), this.maxRound);
+
+			return proposeObject;
 		}
 	}
 }

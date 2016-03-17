@@ -97,8 +97,7 @@ public class Server implements Runnable{
 					if (receivedMaxRound > this.minProposal)
 					{	
 						this.minProposal = receivedMaxRound;
-
-						// Send VALUE to 2PC module, check for its response(ready to commit or not), send PROMISE or NACK accordingly						
+						
 						leaderWriter.writeObject(new WriteObject(Command.PROMISE, leaderMessage.getTransactionId()));
 						leaderWriter.flush();	
 					}

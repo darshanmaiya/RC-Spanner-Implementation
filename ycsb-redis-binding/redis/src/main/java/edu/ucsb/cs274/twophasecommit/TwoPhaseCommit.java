@@ -40,7 +40,7 @@ public class TwoPhaseCommit implements Runnable {
           ServerSocket server = new ServerSocket(portNum);
           while (true) {
             Socket client = server.accept();
-            System.out.println("new client accepted");
+//            System.out.println("new client accepted");
             (new Thread(new RequestHandler(client))).start();
           }
         }
@@ -64,11 +64,15 @@ public class TwoPhaseCommit implements Runnable {
               ObjectOutputStream writer = new ObjectOutputStream(client.getOutputStream());
 
               WriteObject request = (WriteObject)reader.readObject();
-              System.out.println("In twoPC: " + " Txn id: " + request.getTransactionId() + " Command: " + request.getCommand());
+//              System.out.println("In twoPC: " + " Txn id: " + request.getTransactionId() + " Command: " + request.getCommand());
               long txn = request.getTransactionId();
 
               for(Message m: request.getMessages()) {
                 String key = m.getKey();
+                char keyId = m.getKey().charAt(m.getKey().length()-1);
+                int shardNo = (Integer.valueOf(keyId))%3;
+                if(siteNum != shardNo )
+                  continue;
                 synchronized (locks) {
                   while(locks.containsKey(key)){
                     if(locks.get(key) >= txn){
@@ -85,15 +89,23 @@ public class TwoPhaseCommit implements Runnable {
               Message response = (Message)reader.readObject();
               if(response.getCommand() == Command.ACCEPT){
                 for(Message m: request.getMessages()){
+                  char keyId = m.getKey().charAt(m.getKey().length()-1);
+                  int shardNo = (Integer.valueOf(keyId))%3;
+                  if(siteNum != shardNo )
+                    continue;
                   synchronized (locks) {
                     locks.put(m.getKey(), txn);
 
-                    System.out.println("Key to be written is: " + m.getKey());
-                    System.out.println("Message is: " + m);
+//                    System.out.println("Key to be written is: " + m.getKey());
+//                    System.out.println("Message is: " + m);
                     jedis.hmset(m.getKey(), m.getValues());
                   }
                 }
                 for(Message m: request.getMessages()){
+                  char keyId = m.getKey().charAt(m.getKey().length()-1);
+                  int shardNo = (Integer.valueOf(keyId))%3;
+                  if(siteNum != shardNo )
+                    continue;
                   synchronized (locks){
                     locks.remove(m.getKey());
                     locks.notifyAll();

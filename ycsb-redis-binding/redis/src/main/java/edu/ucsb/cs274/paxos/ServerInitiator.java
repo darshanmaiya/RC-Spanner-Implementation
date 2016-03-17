@@ -3,7 +3,7 @@ package edu.ucsb.cs274.paxos;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class Server1Initiator {
+public class ServerInitiator {
 
 	public static void main(String[] args){
 

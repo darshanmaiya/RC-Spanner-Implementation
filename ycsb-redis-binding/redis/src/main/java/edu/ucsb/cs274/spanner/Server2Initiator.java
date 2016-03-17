@@ -1,22 +1,23 @@
-package edu.ucsb.cs274.paxos;
+package edu.ucsb.cs274.spanner;
 
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class Server3Initiator {
-
+public class Server2Initiator {
+	
 	public static void main(String[] args){
 
 		try {
-			ServerSocket listener = new ServerSocket(5003);
+			ServerSocket listener = new ServerSocket(5002);
 
 			while(true) {
 				Socket request = listener.accept();
-				(new Thread(new Server(request, 3))).start();
+				(new Thread(new Server(request, 2))).start();
 			}
 		}
 		catch (Exception e){
 			e.printStackTrace();
 		}
 	}
+
 }

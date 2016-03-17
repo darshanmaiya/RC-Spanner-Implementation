@@ -99,19 +99,19 @@ public class Client implements Runnable{
 				// When there is a message from YCSB server, initiate Paxos.
 				try {
 					ycsbMessage = (WriteObject)ycsbReader.readObject();
-					System.out.println("YCSB command: " + " Transaction id: " + ycsbMessage.getTransactionId() + " Command: " + ycsbMessage.getCommand());
+				//	System.out.println("YCSB command: " + " Transaction id: " + ycsbMessage.getTransactionId() + " Command: " + ycsbMessage.getCommand());
 				} catch (EOFException eof) {
 					continue;
 				}
 				
 				Command command = ycsbMessage.getCommand();
-				System.out.println("Message from YCSB Client:\n");
+			//	System.out.println("Message from YCSB Client:\n");
 				int majority = (this.getAcceptors().size()/2) + 1;
 				
 				if (command == Command.COMMIT) {
 					numPromises = 0;
 
-					System.out.println("Received message: "  + ycsbMessage.getMessages());
+				//	System.out.println("Received message: "  + ycsbMessage.getMessages());
 					// Broadcast PrepareRPC to all Acceptors
 					prepareRPC = PaxosPrepareRPC(ycsbMessage);
 
@@ -137,7 +137,7 @@ public class Client implements Runnable{
 					}
 
 					// Testing
-					System.out.println("Number of Promises: " + numPromises);
+				//	System.out.println("Number of Promises: " + numPromises);
 
 					// Check if Commit quorum achieved
 					if (numPromises >= majority){
@@ -164,7 +164,7 @@ public class Client implements Runnable{
 									acceptorMessage = (WriteObject)acceptor.getAcceptorReader().readObject();
 
 									if (acceptorMessage.getCommand() == Command.SUCCESS){
-										System.out.println("Acceptance message: \n" + acceptorMessage);
+									//	System.out.println("Acceptance message: \n" + acceptorMessage);
 										commitAccept++;
 									}
 								}

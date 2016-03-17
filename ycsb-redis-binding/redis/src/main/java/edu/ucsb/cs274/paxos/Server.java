@@ -99,11 +99,11 @@ public class Server implements Runnable{
 			while (true)
 			{
 				leaderMessage = (WriteObject) leaderReader.readObject();
-				System.out.println("Read from LEADER:\n");
+			//	System.out.println("Read from LEADER:\n");
 
 				// If PaxosPrepareRPC
 				if (leaderMessage.getCommand() == Command.PREPARE) {
-					System.out.println("Prepare");
+				//	System.out.println("Prepare");
 
 					Socket twoPc = new Socket("127.0.0.1", this.twoPcPort);
 					ObjectOutputStream twoPcWrite = new ObjectOutputStream(twoPc.getOutputStream());
@@ -136,7 +136,7 @@ public class Server implements Runnable{
 
 							// If PaxosAcceptRPC
 							if (leaderMessage.getCommand() == Command.ACCEPT) {
-								System.out.println("Accept");
+							//	System.out.println("Accept");
 								// Get maxRound
 								receivedMaxRound = leaderMessage.getMaxVal();
 

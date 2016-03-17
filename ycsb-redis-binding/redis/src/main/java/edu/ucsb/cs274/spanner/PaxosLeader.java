@@ -150,6 +150,8 @@ public class PaxosLeader{
 							// Send SUCCESS to 2PC
 							twoPcWriter.writeObject(new WriteObject(Command.SUCCESS));
 							twoPcWriter.flush();
+							
+							// Continue processing Phase 2 here
 						}
 						else{
 							numPromises = 0;

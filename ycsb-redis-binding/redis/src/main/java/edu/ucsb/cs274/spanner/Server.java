@@ -83,7 +83,7 @@ public class Server implements Runnable{
 			while (true)
 			{
 				leaderMessage = (WriteObject) leaderReader.readObject();
-				System.out.println("Read from LEADER:\n");
+				System.out.println("Read from LEADER");
 
 				// If PaxosPrepareRPC
 				if (leaderMessage.getCommand() == Command.PREPARE) {
@@ -110,7 +110,7 @@ public class Server implements Runnable{
 					}
 				}
 
-				if (leaderMessage.getCommand()  == Command.READ) {
+				if (leaderMessage.getCommand() == Command.READ) {
 
 					String key = leaderMessage.getMessages().get(0).getKey();
 					Set<String> fields = leaderMessage.getMessages().get(0).getFields();

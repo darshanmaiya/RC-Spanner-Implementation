@@ -76,6 +76,20 @@ public class TwoPCClientRequestHandler implements Runnable {
 					paxosLeaderTwoWriter.flush();
 					paxosLeaderThreeWriter.writeObject(ycsbMessage);
 					paxosLeaderThreeWriter.flush();
+					
+					// Check response from Paxos Leaders
+					paxosOneMessage = (WriteObject)paxosLeaderOneReader.readObject();
+					paxosTwoMessage = (WriteObject)paxosLeaderTwoReader.readObject();
+					paxosThreeMessage = (WriteObject)paxosLeaderThreeReader.readObject();
+					
+					if ((paxosOneMessage.getCommand() == Command.SUCCESS) && (paxosTwoMessage.getCommand() == Command.SUCCESS) && (paxosThreeMessage.getCommand() == Command.SUCCESS)){
+						// Can proceed to  Phase two
+						// Replicate the log, Write; give a go-ahead to Paxos Leaders to replicate and write
+					}
+					else{
+						ycsbWriter.writeObject(new  WriteObject(Command.FAILURE));
+						ycsbWriter.flush();
+					}
 				}
 				if (ycsbMessage.getCommand() == Command.READ){
 

@@ -76,16 +76,16 @@ public class Client implements Runnable{
 			for (ServerInfo acceptor : this.acceptors) {
 
 				Socket newSocket = new Socket(acceptor.getIpAddress(), acceptor.getPort());
-				ObjectOutputStream acceptorWrite = new ObjectOutputStream(newSocket.getOutputStream());
-				ObjectInputStream acceptorRead = new ObjectInputStream(newSocket.getInputStream());
+				ObjectOutputStream acceptorWrite = new ObjectOutputStream(new BufferedOutputStream(newSocket.getOutputStream()));
+				ObjectInputStream acceptorRead = new ObjectInputStream(new BufferedInputStream(newSocket.getInputStream()));
 				acceptor.setAcceptorSocket(newSocket);
 				acceptor.setAcceptorWriter(acceptorWrite);
 				acceptor.setAcceptorReader(acceptorRead);
 			}
 
 			WriteObject ycsbMessage;
-			ObjectOutputStream ycsbWriter = new ObjectOutputStream(redisClientSocket.getOutputStream());
-			ObjectInputStream ycsbReader = new ObjectInputStream(redisClientSocket.getInputStream());
+			ObjectOutputStream ycsbWriter = new ObjectOutputStream(new BufferedOutputStream(redisClientSocket.getOutputStream()));
+			ObjectInputStream ycsbReader = new ObjectInputStream(new BufferedInputStream(redisClientSocket.getInputStream()));
 			WriteObject acceptorMessage = null;
 			int numPromises = 0;
 

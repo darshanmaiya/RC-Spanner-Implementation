@@ -60,6 +60,8 @@ public class TwoPCClientRequestHandler implements Runnable {
 			WriteObject paxosOneMessage;
 			WriteObject paxosTwoMessage;
 			WriteObject paxosThreeMessage;
+			
+			WriteObject acceptObject = new WriteObject(Command.ACCEPT);
 
 			while (true){
 
@@ -85,6 +87,23 @@ public class TwoPCClientRequestHandler implements Runnable {
 					if ((paxosOneMessage.getCommand() == Command.SUCCESS) && (paxosTwoMessage.getCommand() == Command.SUCCESS) && (paxosThreeMessage.getCommand() == Command.SUCCESS)){
 						// Can proceed to  Phase two
 						// Replicate the log, Write; give a go-ahead to Paxos Leaders to replicate and write
+						
+						// Give a go-ahead to Paxos leaders to initiate phase 2	
+						paxosLeaderOneWriter.writeObject(acceptObject);
+						paxosLeaderOneWriter.flush();
+						paxosLeaderTwoWriter.writeObject(acceptObject);
+						paxosLeaderTwoWriter.flush();
+						paxosLeaderThreeWriter.writeObject(acceptObject);
+						paxosLeaderThreeWriter.flush();
+						
+						// Check responses  from Paxos  leaders
+						paxosOneMessage = (WriteObject)paxosLeaderOneReader.readObject();
+						paxosTwoMessage = (WriteObject)paxosLeaderTwoReader.readObject();
+						paxosThreeMessage = (WriteObject)paxosLeaderThreeReader.readObject();
+						
+						// Send SUCCESS to YCSB
+						ycsbWriter.writeObject(new  WriteObject(Command.SUCCESS));
+						ycsbWriter.flush();
 					}
 					else{
 						ycsbWriter.writeObject(new  WriteObject(Command.FAILURE));

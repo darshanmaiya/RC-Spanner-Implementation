@@ -5,10 +5,14 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.HashMap;
 import java.util.Properties;
+import java.util.Set;
 
 import edu.ucsb.cs274.paxos.Command;
+import edu.ucsb.cs274.paxos.Message;
 import edu.ucsb.cs274.paxos.WriteObject;
+import redis.clients.jedis.Jedis;
 
 public class RequestHandler implements Runnable{
 	int             id;
@@ -16,6 +20,7 @@ public class RequestHandler implements Runnable{
 	int             maxRound;
 	Socket          acceptorOne;
 	Socket          acceptorTwo;
+	Jedis           jedis;
 
 	public RequestHandler(Socket client, int id){
 		this.id = id;
@@ -42,6 +47,11 @@ public class RequestHandler implements Runnable{
 				e.printStackTrace();
 				return;
 			}
+
+			// First connect to redis
+			jedis = new Jedis(properties.getProperty("redisServer" + String.valueOf(this.id)), Integer.valueOf(properties.getProperty("redisPort" + String.valueOf(this.id))));
+			jedis.connect();
+
 
 			// Connect to corresponding acceptors
 			if (1 == this.id){
@@ -71,6 +81,7 @@ public class RequestHandler implements Runnable{
 			WriteObject acceptorOneMessage;
 			WriteObject acceptorTwoMessage;
 			WriteObject twoPcMessage;
+			WriteObject twoPcSecondMessage;
 			int majority = 2;
 			int numPromises;
 			int readSuccess;
@@ -116,8 +127,39 @@ public class RequestHandler implements Runnable{
 						// Send SUCCESS to 2PC
 						twoPcWriter.writeObject(new WriteObject(Command.SUCCESS));
 						twoPcWriter.flush();
-						
-						// Continue processing Phase 2 here
+
+						// Read reply from 2PC
+						twoPcSecondMessage = (WriteObject)twoPcReader.readObject();
+
+						if (twoPcSecondMessage.getCommand() == Command.ACCEPT){
+							// Continue processing Phase 2 here
+							acceptRPC = PaxosAcceptRPC(twoPcMessage);
+
+							// First log and write in its own shard, Send to all acceptors
+							for (Message m : twoPcMessage.getMessages()){
+
+								String key = m.getKey();
+
+								char keyId = key.charAt(key.length()-1);
+								int shardNo = (Integer.valueOf(keyId))%3 + 1;
+
+								// If its own shard, then write
+								if (shardNo == this.id){
+									jedis.hmset(m.getKey(), m.getValues());
+								}
+							}
+							
+							// Send Accept to all acceptors
+							acceptorOneWriter.writeObject(acceptRPC);
+							acceptorOneWriter.flush();
+							
+							acceptorTwoWriter.writeObject(acceptRPC);
+							acceptorTwoWriter.flush();
+							
+							twoPcWriter.writeObject(new WriteObject(Command.SUCCESS));
+							twoPcWriter.flush();
+
+						}
 					}
 					else{
 						numPromises = 0;
@@ -125,36 +167,36 @@ public class RequestHandler implements Runnable{
 						twoPcWriter.flush();
 					}
 				}
-				
+
 				// If READ
 				if (twoPcMessage.getCommand() == Command.READ){
-					
+
 					readSuccess = 0;
-					
+
 					// Send read message to acceptor 1
 					acceptorOneWriter.writeObject(twoPcMessage);
 					acceptorOneWriter.flush();
-					
+
 					// Send read message to acceptor 2
 					acceptorTwoWriter.writeObject(twoPcMessage);
 					acceptorTwoWriter.flush();
-					
+
 					// Check for consistent read from replicated shards
 					acceptorOneMessage = (WriteObject)acceptorOneReader.readObject();
 					acceptorTwoMessage = (WriteObject)acceptorTwoReader.readObject();
-					
+
 					if (acceptorOneMessage.getCommand() == Command.SUCCESS){
 						readSuccess++;
 					}
-					
+
 					if (acceptorTwoMessage.getCommand() == Command.SUCCESS){
 						readSuccess++;
 					}
-					
+
 					if ((readSuccess + 1) >= majority){
 						if (acceptorOneMessage.getCommand() == Command.SUCCESS){
-						twoPcWriter.writeObject(acceptorOneMessage);
-						twoPcWriter.flush();
+							twoPcWriter.writeObject(acceptorOneMessage);
+							twoPcWriter.flush();
 						}
 						else{
 							twoPcWriter.writeObject(acceptorTwoMessage);
@@ -181,5 +223,23 @@ public class RequestHandler implements Runnable{
 		WriteObject proposeObject = new WriteObject(Command.PREPARE, ycsbMessage.getTransactionId(), ycsbMessage.getMessages(), this.maxRound);
 
 		return proposeObject;
+	}
+
+	// Generate Paxos AcceptRPC
+	private WriteObject PaxosAcceptRPC(WriteObject ycsbMessage) {
+		// Accept message will be of the form, "ACCEPT=1 COMMIT=X:2 Y:3 Z:4"
+
+		WriteObject acceptRPC = new WriteObject(Command.ACCEPT, ycsbMessage.getTransactionId(), ycsbMessage.getMessages(), this.maxRound);
+
+		return acceptRPC;
+	}
+
+	// Generate Paxos AbortRPC
+	private WriteObject PaxosAbortRPC(long transactionId) {
+		// Abort message will be of the form, "ABORT=1 COMMIT=X:2 Y:3 Z:4"
+
+		WriteObject abortRPC = new WriteObject(Command.ABORT, transactionId);
+
+		return abortRPC;
 	}
 }

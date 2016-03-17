@@ -75,7 +75,8 @@ public class Server implements Runnable{
 
 		try{
 			WriteObject leaderMessage;
-
+			WriteObject leaderDecisionMessage;
+			
 			// Once connected to LEADER, listen for Paxos message from the LEADER
 			ObjectOutputStream leaderWriter = new ObjectOutputStream(leaderSocket.getOutputStream());
 			ObjectInputStream leaderReader = new ObjectInputStream(leaderSocket.getInputStream());
@@ -97,9 +98,36 @@ public class Server implements Runnable{
 					if (receivedMaxRound > this.minProposal)
 					{	
 						this.minProposal = receivedMaxRound;
-						
+
 						leaderWriter.writeObject(new WriteObject(Command.PROMISE, leaderMessage.getTransactionId()));
 						leaderWriter.flush();	
+
+						leaderDecisionMessage = (WriteObject)leaderReader.readObject();
+
+						// If PaxosAcceptRPC
+						if (leaderDecisionMessage.getCommand() == Command.ACCEPT) {
+							// Get maxRound
+							receivedMaxRound = leaderMessage.getMaxVal();
+
+							if (receivedMaxRound >= this.minProposal){
+								this.minProposal = receivedMaxRound;
+								
+								// Write data corresponding to its shard
+								// First log and write in its own shard, Send to all acceptors
+								for (Message m : leaderMessage.getMessages()){
+
+									String key = m.getKey();
+
+									char keyId = key.charAt(key.length()-1);
+									int shardNo = (Integer.valueOf(keyId))%3 + 1;
+
+									// If its own shard, then write
+									if (shardNo == this.id){
+										jedis.hmset(m.getKey(), m.getValues());
+									}
+								}
+							}
+						}
 					}
 					// Received proposal is not latest
 					else{
@@ -114,22 +142,19 @@ public class Server implements Runnable{
 					String key = leaderMessage.getMessages().get(0).getKey();
 					Set<String> fields = leaderMessage.getMessages().get(0).getFields();
 					HashMap<String, String> result = new HashMap<>();
-					
-					char keyId = key.charAt(key.length()-1);
-					int shardNo = (Integer.valueOf(keyId))%3 + 1;
-					
+
 					// Get values
 					if (fields == null) {
-							result.putAll(jedis.hgetAll(key));
+						result.putAll(jedis.hgetAll(key));
 					} else {
 
 						String[] fieldArray =
 								(String[]) leaderMessage.getMessages().get(0).getFields().toArray(new String[fields.size()]);
-						
+
 						List<String> values;
-						
+
 						values = jedis.hmget(key, fieldArray);
-						
+
 						Iterator<String> fieldIterator = fields.iterator();
 						Iterator<String> valueIterator = values.iterator();
 

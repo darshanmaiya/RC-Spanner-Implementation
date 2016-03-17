@@ -13,8 +13,8 @@ import java.util.Properties;
 
 public class TwoPCClientRequestHandler implements Runnable {
 	WriteObject wo;
-	ObjectOutputStream paxosOut;
-	ObjectInputStream paxosIn;
+	ObjectOutputStream ycsbOut;
+	ObjectInputStream ycsbIn;
 	Socket request;
 	TwoPCClientRequestHandler(Socket request){
 		try {
@@ -27,15 +27,9 @@ public class TwoPCClientRequestHandler implements Runnable {
 
 	public void run() {
 		try {
-			paxosOut = new ObjectOutputStream(request.getOutputStream());
-			paxosIn = new ObjectInputStream(request.getInputStream());
-			Object x =  paxosIn.readObject();
-			if(x instanceof Message){
-				Message m = (Message)x;
-			}
-			else{
-				wo = (WriteObject)x;
-			}
+			ycsbOut = new ObjectOutputStream(request.getOutputStream());
+			ycsbIn = new ObjectInputStream(request.getInputStream());
+			
 			// Read Config file, Change IP address and port. These are Paxos leaders
 			Properties properties = new Properties();
 			ClassLoader classloader = Thread.currentThread().getContextClassLoader();
@@ -46,10 +40,10 @@ public class TwoPCClientRequestHandler implements Runnable {
 				e.printStackTrace();
 				return;
 			}
-			
+
 			// Connect to Paxos Leaders
 			int paxosPort = Integer.valueOf(properties.getProperty("paxosLeaderPort"));
-			
+
 			Socket paxosLeaderOne = new Socket(properties.getProperty("paxosLeaderIp1"), paxosPort);
 			Socket paxosLeaderTwo = new Socket(properties.getProperty("paxosLeaderIp2"), paxosPort);
 			Socket paxosLeaderThree = new Socket(properties.getProperty("paxosLeaderIp3"), paxosPort);
@@ -62,42 +56,51 @@ public class TwoPCClientRequestHandler implements Runnable {
 			ObjectInputStream reader2 = new ObjectInputStream(paxosLeaderTwo.getInputStream());
 			ObjectInputStream reader3 = new ObjectInputStream(paxosLeaderThree.getInputStream());
 
-			one.writeObject(wo);
-			one.flush();
-			two.writeObject(wo);
-			two.flush();
-			three.writeObject(wo);
-			three.flush();
-
-			Message m1 = (Message) reader1.readObject();
-			Message m2 = (Message) reader2.readObject();
-			Message m3 = (Message) reader3.readObject();
-
-			if (m1.getCommand() == Command.ACCEPT && m2.getCommand() == Command.ACCEPT && m3.getCommand() == Command.ACCEPT) {
-				Message commit = new Message(Command.COMMIT);
-				paxosOut.writeObject(commit);
-				paxosOut.flush();
-				commit = (Message)paxosIn.readObject();
-				one.writeObject(commit);
-				two.writeObject(commit);
-				three.writeObject(commit);
+			WriteObject ycsbMessage;
+			
+			while (true){
+				
+				// Read message from ycsb client
+				ycsbMessage = (WriteObject)ycsbIn.readObject();
+				
+				// Pass on the message to Paxos leaders
+				one.writeObject(wo);
 				one.flush();
+				two.writeObject(wo);
 				two.flush();
+				three.writeObject(wo);
 				three.flush();
-				m1 = (Message)reader1.readObject();
-				m2 = (Message)reader2.readObject();
-				m3 = (Message)reader3.readObject();
-				if(m1.getCommand() == Command.SUCCESS && m2.getCommand() == Command.SUCCESS && m3.getCommand() == Command.SUCCESS)
-					paxosOut.writeObject(new Message(Command.SUCCESS));
-				else
-					paxosOut.writeObject(new Message(Command.FAILURE));
-				paxosOut.flush();
+
+				Message m1 = (Message) reader1.readObject();
+				Message m2 = (Message) reader2.readObject();
+				Message m3 = (Message) reader3.readObject();
+
+				if (m1.getCommand() == Command.ACCEPT && m2.getCommand() == Command.ACCEPT && m3.getCommand() == Command.ACCEPT) {
+					Message commit = new Message(Command.COMMIT);
+					ycsbOut.writeObject(commit);
+					ycsbOut.flush();
+					commit = (Message)ycsbIn.readObject();
+					one.writeObject(commit);
+					two.writeObject(commit);
+					three.writeObject(commit);
+					one.flush();
+					two.flush();
+					three.flush();
+					m1 = (Message)reader1.readObject();
+					m2 = (Message)reader2.readObject();
+					m3 = (Message)reader3.readObject();
+					if(m1.getCommand() == Command.SUCCESS && m2.getCommand() == Command.SUCCESS && m3.getCommand() == Command.SUCCESS)
+						ycsbOut.writeObject(new Message(Command.SUCCESS));
+					else
+						ycsbOut.writeObject(new Message(Command.FAILURE));
+					ycsbOut.flush();
+				}
+
+				paxosLeaderOne.close();
+				paxosLeaderTwo.close();
+				paxosLeaderThree.close();
+
 			}
-
-			paxosLeaderOne.close();
-			paxosLeaderTwo.close();
-			paxosLeaderThree.close();
-
 		}
 		catch (Exception e){
 			e.printStackTrace();

@@ -16,7 +16,7 @@ public class Client {
            
             while(true) {
                 Socket request = listener.accept();
-                System.out.println("after accept");
+               // System.out.println("after accept");
                 (new Thread(new ClientRequestHandler(request))).start();
 
             }

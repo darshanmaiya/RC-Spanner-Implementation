@@ -45,11 +45,11 @@ public class PaxosLeader{
 	}
 
 	public class RequestHandler implements Runnable{
-		int id;
-		Socket client;
-		int maxRound;
-		Socket acceptorOne;
-		Socket acceptorTwo;
+		int             id;
+		Socket          client;
+		int             maxRound;
+		Socket          acceptorOne;
+		Socket          acceptorTwo;
 
 		public RequestHandler(Socket client, int id){
 			this.id = id;
@@ -60,7 +60,7 @@ public class PaxosLeader{
 		public void run(){
 			try {
 
-				// Initialize
+				// Initializing Paxos leader
 
 				// Create input/output streams to TwoPC coordinator
 				ObjectInputStream twoPcReader = new ObjectInputStream(client.getInputStream());
@@ -79,18 +79,18 @@ public class PaxosLeader{
 
 				// Connect to corresponding acceptors
 				if (1 == this.id){
-					this.acceptorOne = new Socket(properties.getProperty("dataCenterIp2"), 5002);
-					this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp3"), 5003);
+					this.acceptorOne = new Socket(properties.getProperty("dataCenterIp2"), 5001);
+					this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp3"), 5001);
 				}
-				
+
 				if (2 == this.id){
-					this.acceptorOne = new Socket(properties.getProperty("dataCenterIp1"), 5001);
-					this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp3"), 5003);
+					this.acceptorOne = new Socket(properties.getProperty("dataCenterIp1"), 5002);
+					this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp3"), 5002);
 				}
-				
+
 				if (3 == this.id){
-					this.acceptorOne = new Socket(properties.getProperty("dataCenterIp1"), 5001);
-					this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp2"), 5002);
+					this.acceptorOne = new Socket(properties.getProperty("dataCenterIp1"), 5003);
+					this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp2"), 5003);
 				}
 
 				ObjectOutputStream acceptorOneWriter = new ObjectOutputStream(acceptorOne.getOutputStream());
@@ -105,52 +105,99 @@ public class PaxosLeader{
 				WriteObject acceptorOneMessage;
 				WriteObject acceptorTwoMessage;
 				WriteObject twoPcMessage;
-				
+				int majority = 2;
+				int numPromises;
+				int readSuccess;
+
 				while (true){
 
 					// Read message from 2pc coordinator
 					twoPcMessage = (WriteObject)twoPcReader.readObject();
-					int majority = 2;
-					int numPromises = 0;
-					long txn = twoPcMessage.getTransactionId();
 
-					///////////////////////// First, get the locks ///////////////////////////////////
+					if (twoPcMessage.getCommand() == Command.COMMIT){
+						numPromises = 0;
+						long txn = twoPcMessage.getTransactionId();
 
-
-					//                  Implement here
+						///////////////////////// First, get the locks ///////////////////////////////////
 
 
-					//////////////////////////////////////////////////////////////////////////////////
+						//                  		 Implement here
 
-					// Generate PaxosPrepare RPC
-					prepareRPC = PaxosPrepareRPC(twoPcMessage);
-					
-					// Send prepare RPC to acceptor 1
-					acceptorOneWriter.writeObject(prepareRPC);
-					acceptorOneWriter.flush();
-					
-					acceptorOneMessage = (WriteObject)acceptorOneReader.readObject();
-					if (acceptorOneMessage.getCommand() == Command.PROMISE)	
-						numPromises++;
-					
-					// Send prepare RPC to acceptor 2
-					acceptorTwoWriter.writeObject(prepareRPC);
-					acceptorTwoWriter.flush();
-					
-					acceptorTwoMessage = (WriteObject)acceptorTwoReader.readObject();
-					if (acceptorOneMessage.getCommand() == Command.PROMISE)	
-						numPromises++;
-					
-					if (numPromises >= majority){
-						// Send SUCCESS to 2PC
-						twoPcWriter.writeObject(new WriteObject(Command.SUCCESS));
-						twoPcWriter.flush();
+
+						//////////////////////////////////////////////////////////////////////////////////
+
+						// Generate PaxosPrepare RPC
+						prepareRPC = PaxosPrepareRPC(twoPcMessage);
+
+						// Send prepare RPC to acceptor 1
+						acceptorOneWriter.writeObject(prepareRPC);
+						acceptorOneWriter.flush();
+
+						acceptorOneMessage = (WriteObject)acceptorOneReader.readObject();
+						if (acceptorOneMessage.getCommand() == Command.PROMISE)	
+							numPromises++;
+
+						// Send prepare RPC to acceptor 2
+						acceptorTwoWriter.writeObject(prepareRPC);
+						acceptorTwoWriter.flush();
+
+						acceptorTwoMessage = (WriteObject)acceptorTwoReader.readObject();
+						if (acceptorOneMessage.getCommand() == Command.PROMISE)	
+							numPromises++;
+
+						if ((numPromises + 1) >= majority){
+							numPromises = 0;
+							// Send SUCCESS to 2PC
+							twoPcWriter.writeObject(new WriteObject(Command.SUCCESS));
+							twoPcWriter.flush();
+						}
+						else{
+							numPromises = 0;
+							twoPcWriter.writeObject(new WriteObject(Command.FAILURE));
+							twoPcWriter.flush();
+						}
 					}
-					else{
-						twoPcWriter.writeObject(new WriteObject(Command.FAILURE));
-						twoPcWriter.flush();
-					}
 					
+					// If READ
+					if (twoPcMessage.getCommand() == Command.READ){
+						
+						readSuccess = 0;
+						
+						// Send read message to acceptor 1
+						acceptorOneWriter.writeObject(twoPcMessage);
+						acceptorOneWriter.flush();
+						
+						// Send read message to acceptor 2
+						acceptorTwoWriter.writeObject(twoPcMessage);
+						acceptorTwoWriter.flush();
+						
+						// Check for consistent read from replicated shards
+						acceptorOneMessage = (WriteObject)acceptorOneReader.readObject();
+						acceptorTwoMessage = (WriteObject)acceptorTwoReader.readObject();
+						
+						if (acceptorOneMessage.getCommand() == Command.SUCCESS){
+							readSuccess++;
+						}
+						
+						if (acceptorTwoMessage.getCommand() == Command.SUCCESS){
+							readSuccess++;
+						}
+						
+						if ((readSuccess + 1) >= majority){
+							if (acceptorOneMessage.getCommand() == Command.SUCCESS){
+							twoPcWriter.writeObject(acceptorOneMessage);
+							twoPcWriter.flush();
+							}
+							else{
+								twoPcWriter.writeObject(acceptorTwoMessage);
+								twoPcWriter.flush();
+							}
+						}
+						else{
+							twoPcWriter.writeObject(new WriteObject(Command.FAILURE));
+							twoPcWriter.flush();
+						}
+					}
 				}
 			} catch (Exception e){
 				e.printStackTrace();

@@ -12,10 +12,10 @@ import java.net.Socket;
 import java.util.Properties;
 
 public class TwoPCClientRequestHandler implements Runnable {
-	WriteObject wo;
-	ObjectOutputStream ycsbOut;
-	ObjectInputStream ycsbIn;
+	ObjectOutputStream ycsbWriter;
+	ObjectInputStream ycsbReader;
 	Socket request;
+
 	TwoPCClientRequestHandler(Socket request){
 		try {
 			this.request = request;
@@ -27,9 +27,9 @@ public class TwoPCClientRequestHandler implements Runnable {
 
 	public void run() {
 		try {
-			ycsbOut = new ObjectOutputStream(request.getOutputStream());
-			ycsbIn = new ObjectInputStream(request.getInputStream());
-			
+			ycsbWriter = new ObjectOutputStream(request.getOutputStream());
+			ycsbReader = new ObjectInputStream(request.getInputStream());
+
 			// Read Config file, Change IP address and port. These are Paxos leaders
 			Properties properties = new Properties();
 			ClassLoader classloader = Thread.currentThread().getContextClassLoader();
@@ -44,62 +44,74 @@ public class TwoPCClientRequestHandler implements Runnable {
 			// Connect to Paxos Leaders
 			int paxosPort = Integer.valueOf(properties.getProperty("paxosLeaderPort"));
 
-			Socket paxosLeaderOne = new Socket(properties.getProperty("paxosLeaderIp1"), paxosPort);
-			Socket paxosLeaderTwo = new Socket(properties.getProperty("paxosLeaderIp2"), paxosPort);
-			Socket paxosLeaderThree = new Socket(properties.getProperty("paxosLeaderIp3"), paxosPort);
+			Socket pLeaderOne = new Socket(properties.getProperty("paxosLeaderIp1"), paxosPort);
+			Socket pLeaderTwo = new Socket(properties.getProperty("paxosLeaderIp2"), paxosPort);
+			Socket pLeaderThree = new Socket(properties.getProperty("paxosLeaderIp3"), paxosPort);
 
-			ObjectOutputStream one = new ObjectOutputStream(paxosLeaderOne.getOutputStream());
-			ObjectOutputStream two = new ObjectOutputStream(paxosLeaderTwo.getOutputStream());
-			ObjectOutputStream three = new ObjectOutputStream(paxosLeaderThree.getOutputStream());
+			ObjectOutputStream paxosLeaderOneWriter = new ObjectOutputStream(pLeaderOne.getOutputStream());
+			ObjectOutputStream paxosLeaderTwoWriter = new ObjectOutputStream(pLeaderTwo.getOutputStream());
+			ObjectOutputStream paxosLeaderThreeWriter = new ObjectOutputStream(pLeaderThree.getOutputStream());
 
-			ObjectInputStream reader1 = new ObjectInputStream(paxosLeaderOne.getInputStream());
-			ObjectInputStream reader2 = new ObjectInputStream(paxosLeaderTwo.getInputStream());
-			ObjectInputStream reader3 = new ObjectInputStream(paxosLeaderThree.getInputStream());
+			ObjectInputStream paxosLeaderOneReader = new ObjectInputStream(pLeaderOne.getInputStream());
+			ObjectInputStream paxosLeaderTwoReader = new ObjectInputStream(pLeaderTwo.getInputStream());
+			ObjectInputStream paxosLeaderThreeReader = new ObjectInputStream(pLeaderThree.getInputStream());
 
 			WriteObject ycsbMessage;
-			
+			WriteObject paxosOneMessage;
+			WriteObject paxosTwoMessage;
+			WriteObject paxosThreeMessage;
+
 			while (true){
-				
+
 				// Read message from ycsb client
-				ycsbMessage = (WriteObject)ycsbIn.readObject();
-				
-				// Pass on the message to Paxos leaders
-				one.writeObject(wo);
-				one.flush();
-				two.writeObject(wo);
-				two.flush();
-				three.writeObject(wo);
-				three.flush();
+				ycsbMessage = (WriteObject)ycsbReader.readObject();
 
-				Message m1 = (Message) reader1.readObject();
-				Message m2 = (Message) reader2.readObject();
-				Message m3 = (Message) reader3.readObject();
+				// Check if READ or COMMIT
+				if (ycsbMessage.getCommand() == Command.COMMIT){
 
-				if (m1.getCommand() == Command.ACCEPT && m2.getCommand() == Command.ACCEPT && m3.getCommand() == Command.ACCEPT) {
-					Message commit = new Message(Command.COMMIT);
-					ycsbOut.writeObject(commit);
-					ycsbOut.flush();
-					commit = (Message)ycsbIn.readObject();
-					one.writeObject(commit);
-					two.writeObject(commit);
-					three.writeObject(commit);
-					one.flush();
-					two.flush();
-					three.flush();
-					m1 = (Message)reader1.readObject();
-					m2 = (Message)reader2.readObject();
-					m3 = (Message)reader3.readObject();
-					if(m1.getCommand() == Command.SUCCESS && m2.getCommand() == Command.SUCCESS && m3.getCommand() == Command.SUCCESS)
-						ycsbOut.writeObject(new Message(Command.SUCCESS));
-					else
-						ycsbOut.writeObject(new Message(Command.FAILURE));
-					ycsbOut.flush();
+					// Pass on the message to Paxos leaders
+					paxosLeaderOneWriter.writeObject(ycsbMessage);
+					paxosLeaderOneWriter.flush();
+					paxosLeaderTwoWriter.writeObject(ycsbMessage);
+					paxosLeaderTwoWriter.flush();
+					paxosLeaderThreeWriter.writeObject(ycsbMessage);
+					paxosLeaderThreeWriter.flush();
 				}
+				if (ycsbMessage.getCommand() == Command.READ){
 
-				paxosLeaderOne.close();
-				paxosLeaderTwo.close();
-				paxosLeaderThree.close();
+					// First find which leader to contact 
+					String key = ycsbMessage.getMessages().get(0).getKey();
+					char keyId = key.charAt(key.length()-1);
+					int shardNo = (Integer.valueOf(keyId))%3 + 1;
 
+					if (shardNo == 1){
+						paxosLeaderOneWriter.writeObject(ycsbMessage);
+						paxosLeaderOneWriter.flush();
+
+						paxosOneMessage = (WriteObject)paxosLeaderOneReader.readObject();
+
+						ycsbWriter.writeObject(paxosOneMessage);
+						ycsbWriter.flush();
+					}
+					else if (shardNo == 2){
+						paxosLeaderTwoWriter.writeObject(ycsbMessage);
+						paxosLeaderTwoWriter.flush();
+						
+						paxosTwoMessage = (WriteObject)paxosLeaderTwoReader.readObject();
+
+						ycsbWriter.writeObject(paxosTwoMessage);
+						ycsbWriter.flush();
+					}
+					else{
+						paxosLeaderThreeWriter.writeObject(ycsbMessage);
+						paxosLeaderThreeWriter.flush();
+						
+						paxosThreeMessage = (WriteObject)paxosLeaderThreeReader.readObject();
+
+						ycsbWriter.writeObject(paxosThreeMessage);
+						ycsbWriter.flush();
+					}
+				}
 			}
 		}
 		catch (Exception e){

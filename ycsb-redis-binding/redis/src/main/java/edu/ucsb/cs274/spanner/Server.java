@@ -100,12 +100,10 @@ public class Server implements Runnable{
 
 						// Send VALUE to 2PC module, check for its response(ready to commit or not), send PROMISE or NACK accordingly						
 						leaderWriter.writeObject(new WriteObject(Command.PROMISE, leaderMessage.getTransactionId()));
-						leaderWriter.flush();
-						
+						leaderWriter.flush();	
 					}
 					// Received proposal is not latest
 					else{
-
 						// Send NACK
 						leaderWriter.writeObject(new WriteObject(Command.NACK, leaderMessage.getTransactionId()));
 						leaderWriter.flush();

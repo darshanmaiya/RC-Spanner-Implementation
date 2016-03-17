@@ -63,7 +63,7 @@ public class RedisClient extends DB {
 
 	public void init() throws DBException {
 		transactionId = transactions++;
-		System.out.println("in init redis with transaciton id: " + transactionId);
+		//System.out.println("in init redis with transaciton id: " + transactionId);
 		Properties props = getProperties();
 		int port;
 
@@ -93,7 +93,7 @@ public class RedisClient extends DB {
 	}
 
 	public void cleanup() throws DBException {
-		System.out.println("in cleanup");
+		//System.out.println("in cleanup");
 		jedis.disconnect();
 	}
 
@@ -101,21 +101,21 @@ public class RedisClient extends DB {
 	 * Start a database transaction. 
 	 */
 	public void start() throws DBException {
-		System.out.println("start transaction with id: " + transactionId);
+		//System.out.println("start transaction with id: " + transactionId);
 	}
 
 	/**
 	 * Commit the current database transaction. 
 	 */
 	public void commit() throws DBException {
-		System.out.println("commit transaction with id: " + transactionId);
+		//System.out.println("commit transaction with id: " + transactionId);
 	}
 
 	/**
 	 * Abort the current database transaction. 
 	 */
 	public void abort() throws DBException {
-		System.out.println("abort transaction with id: " + transactionId);
+		//System.out.println("abort transaction with id: " + transactionId);
 	}
 
 	/*
@@ -158,7 +158,7 @@ public class RedisClient extends DB {
 	@Override
 	public Status insert(String table, String key,
 			HashMap<String, ByteIterator> values) {
-		System.out.println("in insert with key: " + key);
+		//System.out.println("in insert with key: " + key);
 		WriteObject writeObject;
 		List<Message> messageList = new ArrayList<Message>();
 		
@@ -190,7 +190,7 @@ public class RedisClient extends DB {
 	@Override
 	public Status update(String table, String key,
 			HashMap<String, ByteIterator> values) {
-		System.out.println("in update with key: " + key);
+		//System.out.println("in update with key: " + key);
 		return insert(table, key, values);
 	}
 

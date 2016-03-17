@@ -55,7 +55,7 @@ public class Server implements Runnable{
 			}
 
 			// Connect to corresponding Redis Servers
-			jedis = new Jedis(properties.getProperty("redisServer" + String.valueOf(this.id)), Integer.valueOf(properties.getProperty("redisPort" + String.valueOf(this.id))));
+			jedis = new Jedis(properties.getProperty("redisServer" + String.valueOf(this.id)), Integer.valueOf(properties.getProperty("spannerRedisPort" + String.valueOf(this.id))));
 			jedis.connect();
 		} 
 		catch(Exception e){

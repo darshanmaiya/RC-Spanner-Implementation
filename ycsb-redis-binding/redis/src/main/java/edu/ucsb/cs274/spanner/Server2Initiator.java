@@ -8,7 +8,7 @@ public class Server2Initiator {
 	public static void main(String[] args){
 
 		try {
-			ServerSocket listener = new ServerSocket(5002);
+			ServerSocket listener = new ServerSocket(7002);
 
 			while(true) {
 				Socket request = listener.accept();

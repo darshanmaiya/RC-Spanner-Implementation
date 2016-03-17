@@ -49,24 +49,24 @@ public class RequestHandler implements Runnable{
 			}
 
 			// First connect to redis
-			jedis = new Jedis(properties.getProperty("redisServer" + String.valueOf(this.id)), Integer.valueOf(properties.getProperty("redisPort" + String.valueOf(this.id))));
+			jedis = new Jedis(properties.getProperty("redisServer" + String.valueOf(this.id)), Integer.valueOf(properties.getProperty("spannerRedisPort" + String.valueOf(this.id))));
 			jedis.connect();
 
 
 			// Connect to corresponding acceptors
 			if (1 == this.id){
-				this.acceptorOne = new Socket(properties.getProperty("dataCenterIp2"), 5001);
-				this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp3"), 5001);
+				this.acceptorOne = new Socket(properties.getProperty("dataCenterIp2"), 7001);
+				this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp3"), 7001);
 			}
 
 			if (2 == this.id){
-				this.acceptorOne = new Socket(properties.getProperty("dataCenterIp1"), 5002);
-				this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp3"), 5002);
+				this.acceptorOne = new Socket(properties.getProperty("dataCenterIp1"), 7002);
+				this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp3"), 7002);
 			}
 
 			if (3 == this.id){
-				this.acceptorOne = new Socket(properties.getProperty("dataCenterIp1"), 5003);
-				this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp2"), 5003);
+				this.acceptorOne = new Socket(properties.getProperty("dataCenterIp1"), 7003);
+				this.acceptorTwo = new Socket(properties.getProperty("dataCenterIp2"), 7003);
 			}
 
 			ObjectOutputStream acceptorOneWriter = new ObjectOutputStream(acceptorOne.getOutputStream());

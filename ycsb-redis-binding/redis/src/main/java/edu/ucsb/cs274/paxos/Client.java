@@ -77,7 +77,7 @@ public class Client implements Runnable{
 
 				Socket newSocket = new Socket(acceptor.getIpAddress(), acceptor.getPort());
 				ObjectOutputStream acceptorWrite = new ObjectOutputStream(newSocket.getOutputStream());
-				ObjectInputStream acceptorRead = new ObjectInputStream( new BufferedInputStream( newSocket.getInputStream()));
+				ObjectInputStream acceptorRead = new ObjectInputStream(newSocket.getInputStream());
 				acceptor.setAcceptorSocket(newSocket);
 				acceptor.setAcceptorWriter(acceptorWrite);
 				acceptor.setAcceptorReader(acceptorRead);
@@ -85,7 +85,7 @@ public class Client implements Runnable{
 
 			WriteObject ycsbMessage;
 			ObjectOutputStream ycsbWriter = new ObjectOutputStream(redisClientSocket.getOutputStream());
-			ObjectInputStream ycsbReader = new ObjectInputStream( new BufferedInputStream( redisClientSocket.getInputStream()));
+			ObjectInputStream ycsbReader = new ObjectInputStream(redisClientSocket.getInputStream());
 			WriteObject acceptorMessage = null;
 			int numPromises = 0;
 

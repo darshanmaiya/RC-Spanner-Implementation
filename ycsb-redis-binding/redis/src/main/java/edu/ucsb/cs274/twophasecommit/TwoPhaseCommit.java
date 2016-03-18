@@ -5,7 +5,6 @@ import edu.ucsb.cs274.paxos.Message;
 import edu.ucsb.cs274.paxos.WriteObject;
 import redis.clients.jedis.Jedis;
 
-import java.io.BufferedInputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
@@ -63,7 +62,7 @@ public class TwoPhaseCommit implements Runnable {
 
         public void run(){
             try {
-              ObjectInputStream reader = new ObjectInputStream(new BufferedInputStream(client.getInputStream()));
+              ObjectInputStream reader = new ObjectInputStream(client.getInputStream());
               ObjectOutputStream writer = new ObjectOutputStream(client.getOutputStream());
 
               WriteObject request = (WriteObject)reader.readObject();

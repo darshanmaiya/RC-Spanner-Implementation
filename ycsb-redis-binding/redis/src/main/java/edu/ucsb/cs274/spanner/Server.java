@@ -124,7 +124,7 @@ public class Server implements Runnable{
 
 									// If its own shard, then write
 									if (shardNo == this.id){
-										System.out.println("Writing in Acceptor " + this.id + " Key: " + key);
+									//	System.out.println("Writing in Acceptor " + this.id + " Key: " + key);
 										jedis.hmset(m.getKey(), m.getValues());
 									}
 								}

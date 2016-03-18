@@ -1,5 +1,6 @@
 package edu.ucsb.cs274.spanner;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
@@ -240,7 +241,11 @@ public class RequestHandler implements Runnable{
 					}
 				}
 			}
-		} catch (Exception e){
+		} 
+		catch (EOFException e){
+			//e.printStackTrace();
+		}
+		catch (Exception e){
 			e.printStackTrace();
 		}
 	}

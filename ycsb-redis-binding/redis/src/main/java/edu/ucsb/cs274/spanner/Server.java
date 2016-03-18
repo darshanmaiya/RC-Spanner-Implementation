@@ -173,7 +173,9 @@ public class Server implements Runnable{
 				}
 			}
 		}
-
+		catch (EOFException e){
+			e.printStackTrace();
+		}
 		catch (Exception e){
 			e.printStackTrace();
 		}

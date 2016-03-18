@@ -99,7 +99,7 @@ public class RequestHandler implements Runnable{
 					long txn = twoPcMessage.getTransactionId();
 
 					// First, get the locks
-/*
+
 					for(Message m: twoPcMessage.getMessages()) {
 						String key = m.getKey();
 						char keyId = m.getKey().charAt(m.getKey().length()-1);
@@ -116,7 +116,7 @@ public class RequestHandler implements Runnable{
 							locks.put(key, txn);
 						}
 					}
-*/
+
 					// Generate PaxosPrepare RPC
 					prepareRPC = PaxosPrepareRPC(twoPcMessage);
 
@@ -159,11 +159,11 @@ public class RequestHandler implements Runnable{
 
 								// If its own shard, then write
 								if (shardNo == this.id){
-								//	 synchronized (locks) {
-						        //            locks.put(m.getKey(), txn);
+									 synchronized (locks) {
+						                    locks.put(m.getKey(), txn);
 
 									jedis.hmset(m.getKey(), m.getValues());
-								//	 }
+									 }
 								}
 							}
 
@@ -175,7 +175,7 @@ public class RequestHandler implements Runnable{
 							acceptorTwoWriter.flush();
 
 							// Release the locks
-					/*		for(Message m: twoPcMessage.getMessages()){
+							for(Message m: twoPcMessage.getMessages()){
 				                  char keyId = m.getKey().charAt(m.getKey().length()-1);
 				                  int shardNo = ((Integer.valueOf(keyId))%3) + 1;
 				                  
@@ -187,7 +187,7 @@ public class RequestHandler implements Runnable{
 				                    locks.notifyAll();
 				                  }
 				                }
-					*/	
+						
 							twoPcWriter.writeObject(new WriteObject(Command.SUCCESS));
 							twoPcWriter.flush();
 

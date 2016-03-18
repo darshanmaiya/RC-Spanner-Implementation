@@ -10,7 +10,7 @@ public class Client {
     public static void main(String[] args){
 
         try {
-           ServerSocket listener = new ServerSocket(7000);
+           ServerSocket listener = new ServerSocket(5000);
            
             while(true) {
                 Socket request = listener.accept();

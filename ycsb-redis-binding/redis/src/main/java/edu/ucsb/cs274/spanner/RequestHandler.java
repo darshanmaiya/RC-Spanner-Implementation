@@ -15,17 +15,19 @@ import edu.ucsb.cs274.paxos.WriteObject;
 import redis.clients.jedis.Jedis;
 
 public class RequestHandler implements Runnable{
-	int             id;
-	Socket          client;
-	int             maxRound;
-	Socket          acceptorOne;
-	Socket          acceptorTwo;
-	Jedis           jedis;
+	int                       id;
+	Socket                    client;
+	int                       maxRound;
+	Socket                    acceptorOne;
+	Socket                    acceptorTwo;
+	Jedis                     jedis;
+	HashMap<String, Long>     locks;
 
 	public RequestHandler(Socket client, int id){
 		this.id = id;
 		this.maxRound = 0;
 		this.client = client;
+		this.locks = new HashMap<>();
 	}
 
 	public void run(){
@@ -95,13 +97,24 @@ public class RequestHandler implements Runnable{
 					numPromises = 0;
 					long txn = twoPcMessage.getTransactionId();
 
-					///////////////////////// First, get the locks ///////////////////////////////////
+					// First, get the locks
 
-
-					//                  		 Implement here
-
-
-					//////////////////////////////////////////////////////////////////////////////////
+					for(Message m: twoPcMessage.getMessages()) {
+						String key = m.getKey();
+						char keyId = m.getKey().charAt(m.getKey().length()-1);
+						int shardNo = (Integer.valueOf(keyId))%3 + 1;
+						if(this.id != shardNo)
+							continue;
+						synchronized (locks) {
+							while(locks.containsKey(key)){
+								if(locks.get(key) >= txn){
+									break;
+								}
+								locks.wait();
+							}
+							locks.put(key, txn);
+						}
+					}
 
 					// Generate PaxosPrepare RPC
 					prepareRPC = PaxosPrepareRPC(twoPcMessage);
@@ -145,16 +158,34 @@ public class RequestHandler implements Runnable{
 
 								// If its own shard, then write
 								if (shardNo == this.id){
+									 synchronized (locks) {
+						                    locks.put(m.getKey(), txn);
+
 									jedis.hmset(m.getKey(), m.getValues());
+									 }
 								}
 							}
-							
+
 							// Send Accept to all acceptors
 							acceptorOneWriter.writeObject(acceptRPC);
 							acceptorOneWriter.flush();
-							
+
 							acceptorTwoWriter.writeObject(acceptRPC);
 							acceptorTwoWriter.flush();
+
+							// Release the locks
+							for(Message m: twoPcMessage.getMessages()){
+				                  char keyId = m.getKey().charAt(m.getKey().length()-1);
+				                  int shardNo = ((Integer.valueOf(keyId))%3) + 1;
+				                  
+				                  if(this.id != shardNo)
+				                    continue;
+				                  
+				                  synchronized (locks){
+				                    locks.remove(m.getKey());
+				                    locks.notifyAll();
+				                  }
+				                }
 							
 							twoPcWriter.writeObject(new WriteObject(Command.SUCCESS));
 							twoPcWriter.flush();

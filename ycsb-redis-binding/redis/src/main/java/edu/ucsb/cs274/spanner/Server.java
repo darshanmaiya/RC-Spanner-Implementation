@@ -84,11 +84,11 @@ public class Server implements Runnable{
 			while (true)
 			{
 				leaderMessage = (WriteObject) leaderReader.readObject();
-				System.out.println("Read from LEADER");
+				//System.out.println("Read from LEADER");
 
 				// If PaxosPrepareRPC
 				if (leaderMessage.getCommand() == Command.PREPARE) {
-					System.out.println("Prepare");
+					//System.out.println("Prepare");
 
 					// Get maxRound
 					int receivedMaxRound = leaderMessage.getMaxVal();

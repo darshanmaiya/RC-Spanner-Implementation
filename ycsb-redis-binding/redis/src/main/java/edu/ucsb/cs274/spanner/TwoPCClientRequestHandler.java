@@ -4,6 +4,7 @@ import edu.ucsb.cs274.paxos.Command;
 import edu.ucsb.cs274.paxos.Message;
 import edu.ucsb.cs274.paxos.WriteObject;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
@@ -147,9 +148,13 @@ public class TwoPCClientRequestHandler implements Runnable {
 				}
 			}
 		}
-		catch (Exception e){
+		catch (EOFException e){
+			//e.printStackTrace();
+		}
+		catch(Exception e){
 			e.printStackTrace();
 		}
+		
 	}
 }
 

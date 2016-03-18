@@ -57,7 +57,6 @@ public class Server implements Runnable{
 			// Connect to corresponding Redis Servers
 			jedis = new Jedis(properties.getProperty("redisServer" + String.valueOf(this.id)), Integer.valueOf(properties.getProperty("spannerRedisPort" + String.valueOf(this.id))));
 			jedis.connect();
-			System.out.println("Acceptor " + this.id + "Jedis: IP: " + properties.getProperty("redisServer" + String.valueOf(this.id)) + properties.getProperty("spannerRedisPort" + String.valueOf(this.id)));
 		} 
 		catch(Exception e){
 			e.printStackTrace();
@@ -71,7 +70,7 @@ public class Server implements Runnable{
 
 	// Setup/Manage ports, start message flow
 	public void run () {
-		System.out.println("Acceptor started with id: " + this.id);
+	
 		this.initialize();
 
 		try{

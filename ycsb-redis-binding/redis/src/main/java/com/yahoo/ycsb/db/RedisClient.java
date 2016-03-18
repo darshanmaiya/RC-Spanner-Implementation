@@ -146,7 +146,6 @@ public class RedisClient extends DB {
 									  transactionId,
 									  messageList));
 			outputStream.flush();
-			Thread.yield();
 			writeObject = (WriteObject) inputStream.readObject();
 			StringByteIterator.putAllAsByteIterators(result, writeObject.getMessages().get(0).getValues());
 		} catch (Exception e) {
@@ -173,7 +172,6 @@ public class RedisClient extends DB {
 									  transactionId,
 									  messageList));
 			outputStream.flush();
-			Thread.yield();
 			writeObject = (WriteObject) inputStream.readObject();
 			if(writeObject.getCommand() == Command.SUCCESS)
 				return Status.OK;

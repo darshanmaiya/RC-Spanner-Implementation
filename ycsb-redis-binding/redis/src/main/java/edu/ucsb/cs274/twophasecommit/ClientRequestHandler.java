@@ -59,7 +59,7 @@ public class ClientRequestHandler implements Runnable {
       two.flush();
       three.writeObject(wo);
       three.flush();
-
+      Thread.yield();
       Message m1 = (Message) reader1.readObject();
       Message m2 = (Message) reader2.readObject();
       Message m3 = (Message) reader3.readObject();
@@ -67,6 +67,7 @@ public class ClientRequestHandler implements Runnable {
         Message commit = new Message(Command.COMMIT);
         paxosOut.writeObject(commit);
         paxosOut.flush();
+        Thread.yield();
         commit = (Message)paxosIn.readObject();
         one.writeObject(commit);
         two.writeObject(commit);
@@ -74,6 +75,7 @@ public class ClientRequestHandler implements Runnable {
         one.flush();
         two.flush();
         three.flush();
+        Thread.yield();
         m1 = (Message)reader1.readObject();
         m2 = (Message)reader2.readObject();
         m3 = (Message)reader3.readObject();

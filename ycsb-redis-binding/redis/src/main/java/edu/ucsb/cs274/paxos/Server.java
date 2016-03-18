@@ -123,7 +123,7 @@ public class Server implements Runnable{
 						// Send received WriteObject to 2PC co-ordinator for confirmation
 						twoPcWrite.writeObject(leaderMessage);
 						twoPcWrite.flush();
-
+						Thread.yield();
 						// Wait till receive 'COMMIT' 
 						twoPcReply = (Message)twoPcRead.readObject();
 
@@ -131,7 +131,7 @@ public class Server implements Runnable{
 						{	
 							leaderWriter.writeObject(new WriteObject(Command.PROMISE, leaderMessage.getTransactionId()));
 							leaderWriter.flush();
-
+							Thread.yield();
 							leaderMessage = (WriteObject)leaderReader.readObject();
 
 							// If PaxosAcceptRPC
@@ -151,7 +151,7 @@ public class Server implements Runnable{
 									// Give a go-ahead to 2PC module to commit the value. Once acknowledgement received, send COMMIT to LEADER
 									twoPcWrite.writeObject(new Message(Command.ACCEPT));
 									twoPcWrite.flush();
-
+									Thread.yield();
 									// Check for SUCCESS for 2PC Co-ordinator
 									twoPcReply = (Message)twoPcRead.readObject();
 

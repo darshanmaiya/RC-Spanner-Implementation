@@ -88,6 +88,7 @@ public class TwoPhaseCommit implements Runnable {
 
               writer.writeObject(new Message(Command.ACCEPT));
               writer.flush();
+              Thread.yield();
               Message response = (Message)reader.readObject();
               if(response.getCommand() == Command.ACCEPT){
                 for(Message m: request.getMessages()){

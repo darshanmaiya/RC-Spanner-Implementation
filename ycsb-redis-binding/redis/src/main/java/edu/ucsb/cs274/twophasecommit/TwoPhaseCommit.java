@@ -40,6 +40,8 @@ public class TwoPhaseCommit implements Runnable {
           ServerSocket server = new ServerSocket(portNum);
           while (true) {
             Socket client = server.accept();
+            client.setPerformancePreferences(0,2,1);
+            client.setTcpNoDelay(true);
 //            System.out.println("new client accepted");
             (new Thread(new RequestHandler(client))).start();
           }

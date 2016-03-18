@@ -30,18 +30,20 @@ public class ClientRequestHandler implements Runnable {
       paxosOut = new ObjectOutputStream(request.getOutputStream());
       paxosIn = new ObjectInputStream(request.getInputStream());
       Object x =  paxosIn.readObject();
-      if(x instanceof Message){
-        Message m = (Message)x;
-        System.out.println("Message: " + m.getCommand());
-      }
-      else{
-        wo = (WriteObject)x;
-        System.out.println("Write Object: " + wo.getCommand());
 
-      }
+      wo = (WriteObject)x;
+
       Socket sOne = new Socket("localhost", 8001);
       Socket sTwo = new Socket("localhost", 8002);
       Socket sThree = new Socket("localhost", 8003);
+
+      sOne.setPerformancePreferences(0,2,1);
+      sTwo.setPerformancePreferences(0,2,1);
+      sThree.setPerformancePreferences(0,2,1);
+
+      sOne.setTcpNoDelay(true);
+      sTwo.setTcpNoDelay(true);
+      sThree.setTcpNoDelay(true);
 
       ObjectOutputStream one = new ObjectOutputStream(sOne.getOutputStream());
       ObjectOutputStream two = new ObjectOutputStream(sTwo.getOutputStream());

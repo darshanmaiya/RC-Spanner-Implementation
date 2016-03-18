@@ -85,6 +85,8 @@ public class RedisClient extends DB {
 		
 		try{
 			leaderSocket = new Socket("127.0.0.1", 5000);
+      leaderSocket.setPerformancePreferences(0,2,1);
+      leaderSocket.setTcpNoDelay(true);
 			outputStream = new ObjectOutputStream(leaderSocket.getOutputStream());
 			inputStream = new ObjectInputStream(leaderSocket.getInputStream());
 		} catch (IOException e) {

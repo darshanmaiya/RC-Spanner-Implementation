@@ -12,6 +12,8 @@ public class ServerInitiator {
 
 			while(true) {
 				Socket request = listener.accept();
+        request.setPerformancePreferences(0,2,1);
+        request.setTcpNoDelay(true);
 				(new Thread(new Server(request, 1))).start();
 			}
 		}

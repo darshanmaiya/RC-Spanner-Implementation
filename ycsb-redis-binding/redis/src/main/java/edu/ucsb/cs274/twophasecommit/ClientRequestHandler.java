@@ -4,6 +4,7 @@ import edu.ucsb.cs274.paxos.Command;
 import edu.ucsb.cs274.paxos.Message;
 import edu.ucsb.cs274.paxos.WriteObject;
 
+import java.io.BufferedInputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
@@ -28,7 +29,7 @@ public class ClientRequestHandler implements Runnable {
   public void run() {
     try {
       paxosOut = new ObjectOutputStream(request.getOutputStream());
-      paxosIn = new ObjectInputStream(request.getInputStream());
+      paxosIn = new ObjectInputStream(new BufferedInputStream(request.getInputStream()));
       Object x =  paxosIn.readObject();
 
       wo = (WriteObject)x;
@@ -49,9 +50,9 @@ public class ClientRequestHandler implements Runnable {
       ObjectOutputStream two = new ObjectOutputStream(sTwo.getOutputStream());
       ObjectOutputStream three = new ObjectOutputStream(sThree.getOutputStream());
 
-      ObjectInputStream reader1 = new ObjectInputStream(sOne.getInputStream());
-      ObjectInputStream reader2 = new ObjectInputStream(sTwo.getInputStream());
-      ObjectInputStream reader3 = new ObjectInputStream(sThree.getInputStream());
+      ObjectInputStream reader1 = new ObjectInputStream( new BufferedInputStream( sOne.getInputStream()));
+      ObjectInputStream reader2 = new ObjectInputStream( new BufferedInputStream( sTwo.getInputStream()));
+      ObjectInputStream reader3 = new ObjectInputStream( new BufferedInputStream( sThree.getInputStream()));
 
       one.writeObject(wo);
       one.flush();

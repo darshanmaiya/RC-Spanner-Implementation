@@ -92,7 +92,7 @@ public class Server implements Runnable{
 
 			// Once connected to LEADER, listen for Paxos message from the LEADER
 			ObjectOutputStream leaderWriter = new ObjectOutputStream(leaderSocket.getOutputStream());
-			ObjectInputStream leaderReader = new ObjectInputStream(leaderSocket.getInputStream());
+			ObjectInputStream leaderReader = new ObjectInputStream( new BufferedInputStream( leaderSocket.getInputStream()));
 
 			Message twoPcReply;
 
@@ -107,7 +107,7 @@ public class Server implements Runnable{
 
 					Socket twoPc = new Socket("127.0.0.1", this.twoPcPort);
 					ObjectOutputStream twoPcWrite = new ObjectOutputStream(twoPc.getOutputStream());
-					ObjectInputStream twoPcRead = new ObjectInputStream(twoPc.getInputStream());
+					ObjectInputStream twoPcRead = new ObjectInputStream( new BufferedInputStream( twoPc.getInputStream()));
 
 					// Get maxRound
 					int receivedMaxRound = leaderMessage.getMaxVal();
